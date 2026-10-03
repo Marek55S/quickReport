@@ -29,3 +29,6 @@ npm-debug.log*
 
 # Google Cloud credentials
 *service-account*.json
+
+
+*.sha256

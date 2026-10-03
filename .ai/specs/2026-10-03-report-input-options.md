@@ -79,3 +79,11 @@ Give residents control over where and what they report: choose the location sour
   - Actual files: `src/components/admin/Dashboard.tsx`, `docs/ROADMAP.md`, `.ai/ARCHITECTURE.md`, this specification
   - Validation: `pnpm build` and `pnpm lint` passed; dashboard uses the shared category styles for all categories.
   - Remaining work: Deploy to Cloud Run (requires user authorization); physical phone test.
+
+## Follow-up: feedback for irrelevant notes (2026-10-03)
+
+- Request: when the resident's notes are irrelevant, tell them the report text was not updated.
+- Change: Gemini also returns `notes_relevant`; `/api/analyze` exposes `notes_used`. When notes were not used, the review screen keeps the current report and shows "Opis nie dotyczy zgłaszanego problemu, więc treść zgłoszenia nie została zmieniona…"; when used, it shows "Zaktualizowano zgłoszenie na podstawie Twojego opisu." The message clears when the notes are edited and scrolls into view above the sticky send bar.
+- Files: `src/lib/ai.ts`, `src/components/resident/ReportFlow.tsx`
+- Validation (real Gemini): pothole + no notes / weather question / random text → `notes_used=false`; pothole + tyre damage detail → `true`; blank + greeting → `false` (`NOT_DETECTED`); blank + broken street lamp → `true` (`INFRASTRUCTURE_FAILURE`). Playwright: irrelevant notes left the report unchanged with the warning visible; editing cleared it; relevant notes changed the report and showed the confirmation. `pnpm build` and `pnpm lint` passed.
+

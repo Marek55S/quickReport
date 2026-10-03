@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ArrowLeft,
   Camera,
@@ -39,7 +39,7 @@ const PickerMap = dynamic(() => import("./PickerMap"), {
 
 type Step = "home" | "analyzing" | "review" | "auth" | "submitting" | "done" | "error";
 type LocationChoice = "device" | "exif" | "map";
-type AnalyzeResponse = { analysis: Analysis; source: "ai" | "mock" };
+type AnalyzeResponse = { analysis: Analysis; source: "ai" | "mock"; notes_used: boolean };
 
 async function requestAnalysis(blob: Blob, notes = ""): Promise<AnalyzeResponse> {
   const form = new FormData();
@@ -98,11 +98,14 @@ export default function ReportFlow() {
     }
   }
 
-  async function regenerate() {
-    if (!photo) return;
+  /** Returns false when the AI found the notes unrelated; the current report is then kept. */
+  async function regenerate(): Promise<boolean> {
+    if (!photo) return false;
     const data = await requestAnalysis(photo.blob, notes);
+    if (!data.notes_used) return false;
     setAnalysis(data.analysis);
     setAiSource(data.source);
+    return true;
   }
 
   async function submit() {
@@ -279,7 +282,7 @@ function Review(props: {
   aiSource: "ai" | "mock";
   notes: string;
   onNotes: (n: string) => void;
-  onRegenerate: () => Promise<void>;
+  onRegenerate: () => Promise<boolean>;
   onChange: (a: Analysis) => void;
   onBack: () => void;
   onNext: () => void;
@@ -433,19 +436,25 @@ function LocationSection(props: {
 function NotesSection(props: {
   notes: string;
   onNotes: (n: string) => void;
-  onRegenerate: () => Promise<void>;
+  onRegenerate: () => Promise<boolean>;
   highlight: boolean;
 }) {
   const [busy, setBusy] = useState(false);
-  const [failed, setFailed] = useState(false);
+  const [outcome, setOutcome] = useState<"updated" | "ignored" | "failed" | null>(null);
+  const feedback = useRef<HTMLDivElement>(null);
+
+  // The result appears at the bottom of the screen, under the sticky send bar; bring it into view.
+  useEffect(() => {
+    if (outcome) feedback.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [outcome]);
 
   async function run() {
     setBusy(true);
-    setFailed(false);
+    setOutcome(null);
     try {
-      await props.onRegenerate();
+      setOutcome((await props.onRegenerate()) ? "updated" : "ignored");
     } catch {
-      setFailed(true);
+      setOutcome("failed");
     } finally {
       setBusy(false);
     }
@@ -459,7 +468,10 @@ function NotesSection(props: {
         </span>
         <textarea
           value={props.notes}
-          onChange={(e) => props.onNotes(e.target.value)}
+          onChange={(e) => {
+            props.onNotes(e.target.value);
+            setOutcome(null);
+          }}
           maxLength={NOTES_MAX_LENGTH}
           rows={3}
           placeholder="Np. dziura jest tu od tygodnia, wieczorem jej nie widać, wpadł w nią rowerzysta"
@@ -475,7 +487,23 @@ function NotesSection(props: {
         {busy ? <Loader2 className="size-4 animate-spin" /> : <Sparkles className="size-4" />}
         {busy ? "Generuję zgłoszenie…" : "Uwzględnij opis w zgłoszeniu"}
       </button>
-      {failed && <p className="mt-1 text-xs text-rose-600">Nie udało się wygenerować zgłoszenia. Spróbuj ponownie.</p>}
+      <div ref={feedback}>
+        {outcome === "updated" && (
+          <p role="status" className="mt-2 flex items-start gap-1.5 text-xs text-emerald-700">
+            <CheckCircle2 className="mt-px size-3.5 shrink-0" /> Zaktualizowano zgłoszenie na podstawie Twojego opisu.
+          </p>
+        )}
+        {outcome === "ignored" && (
+          <p role="status" className="mt-2 flex items-start gap-1.5 rounded-lg bg-amber-50 p-2 text-xs text-amber-800">
+            <TriangleAlert className="mt-px size-3.5 shrink-0" />
+            Opis nie dotyczy zgłaszanego problemu, więc treść zgłoszenia nie została zmieniona. Opisz, co jest nie tak w tym
+            miejscu.
+          </p>
+        )}
+        {outcome === "failed" && (
+          <p role="alert" className="mt-2 text-xs text-rose-600">Nie udało się wygenerować zgłoszenia. Spróbuj ponownie.</p>
+        )}
+      </div>
     </section>
   );
 }
