@@ -4,7 +4,7 @@ import dynamic from "next/dynamic";
 import { useCallback, useEffect, useState } from "react";
 import { CheckCircle2, ClipboardList, Flame, Hammer, Loader2, RefreshCw, Users } from "lucide-react";
 import { CATEGORY_STYLE } from "@/components/categories";
-import { CATEGORY_LABELS, type Ticket, type TicketStatus } from "@/lib/types";
+import { CATEGORY_LABELS, LOCATION_SOURCE_LABELS, type Ticket, type TicketStatus } from "@/lib/types";
 import { severityColor, severityLabel } from "./severity";
 
 const TicketMap = dynamic(() => import("./TicketMap"), {
@@ -214,7 +214,9 @@ function TicketDetails({ ticket: t, onStatus }: { ticket: Ticket; onStatus: (s: 
         </p>
       </div>
       <p className="text-xs text-slate-500">
-        GPS {t.gps_lat.toFixed(5)}, {t.gps_lng.toFixed(5)} · geohash <span className="font-mono">{t.geohash}</span> ·
+        GPS {t.gps_lat.toFixed(5)}, {t.gps_lng.toFixed(5)}
+        {t.location_source && ` (${LOCATION_SOURCE_LABELS[t.location_source]})`} · geohash{" "}
+        <span className="font-mono">{t.geohash}</span> ·
         pierwsze zgłoszenie {new Date(t.created_at).toLocaleString("pl-PL")}
       </p>
       <div className="flex gap-2">

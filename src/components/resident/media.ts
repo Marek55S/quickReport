@@ -1,4 +1,5 @@
 // Browser helpers for the resident flow.
+import type { LocationSource } from "@/lib/types";
 
 const MAX_SIDE = 1280;
 
@@ -19,10 +20,22 @@ export async function downscaleImage(file: File): Promise<Blob> {
   }
 }
 
-export type Position = { lat: number; lng: number; accuracy?: number; demo: boolean };
+export type Position = { lat: number; lng: number; accuracy?: number; source: LocationSource };
 
 // Kraków Main Square, used when the browser cannot provide a location (e.g. indoors at the demo).
-export const DEMO_POSITION: Position = { lat: 50.06165, lng: 19.93732, demo: true };
+export const DEMO_POSITION: Position = { lat: 50.06165, lng: 19.93732, source: "demo" };
+
+/** GPS from the photo's EXIF metadata; must run on the original file, before downscaling. */
+export async function readPhotoPosition(file: File): Promise<Position | null> {
+  try {
+    const { gps } = await import("exifr");
+    const coords = await gps(file);
+    if (!coords || !Number.isFinite(coords.latitude) || !Number.isFinite(coords.longitude)) return null;
+    return { lat: coords.latitude, lng: coords.longitude, source: "exif" };
+  } catch {
+    return null;
+  }
+}
 
 export function getPosition(timeoutMs = 10_000): Promise<Position> {
   return new Promise((resolve) => {
@@ -33,7 +46,7 @@ export function getPosition(timeoutMs = 10_000): Promise<Position> {
           lat: pos.coords.latitude,
           lng: pos.coords.longitude,
           accuracy: pos.coords.accuracy,
-          demo: false,
+          source: "device",
         }),
       () => resolve(DEMO_POSITION),
       { enableHighAccuracy: true, timeout: timeoutMs, maximumAge: 30_000 },

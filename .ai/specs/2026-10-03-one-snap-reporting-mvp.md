@@ -322,10 +322,7 @@ If time runs short, cut in this order: PWA manifest polish, attaching extra imag
 
 ### Stretch goals (only after Task 7)
 
-- Reverse geocoding of the address into the formal report (e.g. Nominatim).
-- AI-assessed severity (danger level) combined with report count for priority.
-- Firestore real-time listeners instead of polling on the dashboard.
-- Service worker with offline report queueing.
+Moved to [`docs/ROADMAP.md`](../../docs/ROADMAP.md).
 
 ## Handoff
 

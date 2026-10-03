@@ -1,59 +1,91 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useRef, useState } from "react";
 import {
   ArrowLeft,
   Camera,
   CheckCircle2,
+  Image as ImageIcon,
   Loader2,
+  LocateFixed,
+  Map as MapIcon,
   MapPin,
+  NotebookPen,
+  ScanSearch,
   ShieldCheck,
   Sparkles,
   TriangleAlert,
   Users,
 } from "lucide-react";
 import { CATEGORY_STYLE } from "@/components/categories";
-import { CATEGORIES, CATEGORY_LABELS, type Analysis, type SubmitResult } from "@/lib/types";
-import { downscaleImage, getPosition, type Position } from "./media";
+import {
+  CATEGORY_LABELS,
+  DEFAULT_CATEGORY,
+  NOTES_MAX_LENGTH,
+  REPORTABLE_CATEGORIES,
+  type Analysis,
+  type SubmitResult,
+} from "@/lib/types";
+import { downscaleImage, getPosition, readPhotoPosition, type Position } from "./media";
+
+const PickerMap = dynamic(() => import("./PickerMap"), {
+  ssr: false,
+  loading: () => <div className="flex size-full items-center justify-center text-sm text-slate-400">Ładowanie mapy…</div>,
+});
 
 type Step = "home" | "analyzing" | "review" | "auth" | "submitting" | "done" | "error";
+type LocationChoice = "device" | "exif" | "map";
+type AnalyzeResponse = { analysis: Analysis; source: "ai" | "mock" };
+
+async function requestAnalysis(blob: Blob, notes = ""): Promise<AnalyzeResponse> {
+  const form = new FormData();
+  form.append("image", blob, "photo.jpg");
+  if (notes.trim()) form.append("notes", notes.trim());
+  const res = await fetch("/api/analyze", { method: "POST", body: form });
+  if (!res.ok) throw new Error((await res.json()).error ?? "Analiza nie powiodła się");
+  return res.json();
+}
 
 export default function ReportFlow() {
-  const fileInput = useRef<HTMLInputElement>(null);
+  const cameraInput = useRef<HTMLInputElement>(null);
+  const galleryInput = useRef<HTMLInputElement>(null);
   const positionPromise = useRef<Promise<Position> | null>(null);
   const [step, setStep] = useState<Step>("home");
   const [photo, setPhoto] = useState<{ blob: Blob; url: string } | null>(null);
-  const [position, setPosition] = useState<Position | null>(null);
+  const [locations, setLocations] = useState<{ device: Position; exif: Position | null; map: Position | null } | null>(
+    null,
+  );
+  const [locationChoice, setLocationChoice] = useState<LocationChoice>("device");
   const [analysis, setAnalysis] = useState<Analysis | null>(null);
   const [aiSource, setAiSource] = useState<"ai" | "mock">("ai");
+  const [notes, setNotes] = useState("");
   const [result, setResult] = useState<SubmitResult | null>(null);
   const [error, setError] = useState("");
 
-  function startReport() {
-    // Ask for location while the user is taking the photo.
+  const position = locations ? (locations[locationChoice] ?? locations.device) : null;
+
+  function startReport(source: "camera" | "gallery") {
+    // Ask for location while the user is taking or choosing the photo.
     positionPromise.current = getPosition();
-    fileInput.current?.click();
+    (source === "camera" ? cameraInput : galleryInput).current?.click();
   }
 
   async function onPhotoSelected(file: File | undefined) {
     if (!file) return;
     setStep("analyzing");
     try {
-      const [blob, pos] = await Promise.all([
+      const [blob, device, exif] = await Promise.all([
         downscaleImage(file),
         positionPromise.current ?? getPosition(),
+        readPhotoPosition(file),
       ]);
       if (photo) URL.revokeObjectURL(photo.url);
       setPhoto({ blob, url: URL.createObjectURL(blob) });
-      setPosition(pos);
+      setLocations({ device, exif, map: null });
+      setLocationChoice("device");
 
-      const form = new FormData();
-      form.append("image", blob, "photo.jpg");
-      form.append("lat", String(pos.lat));
-      form.append("lng", String(pos.lng));
-      const res = await fetch("/api/analyze", { method: "POST", body: form });
-      if (!res.ok) throw new Error((await res.json()).error ?? "Analiza nie powiodła się");
-      const data = (await res.json()) as { analysis: Analysis; source: "ai" | "mock" };
+      const data = await requestAnalysis(blob);
       setAnalysis(data.analysis);
       setAiSource(data.source);
       setStep("review");
@@ -61,6 +93,13 @@ export default function ReportFlow() {
       setError(e instanceof Error ? e.message : "Coś poszło nie tak");
       setStep("error");
     }
+  }
+
+  async function regenerate() {
+    if (!photo) return;
+    const data = await requestAnalysis(photo.blob, notes);
+    setAnalysis(data.analysis);
+    setAiSource(data.source);
   }
 
   async function submit() {
@@ -71,6 +110,7 @@ export default function ReportFlow() {
       form.append("image", photo.blob, "photo.jpg");
       form.append("lat", String(position.lat));
       form.append("lng", String(position.lng));
+      form.append("location_source", position.source);
       form.append("category", analysis.category);
       form.append("title", analysis.title);
       form.append("formal_report", analysis.formal_report);
@@ -86,9 +126,11 @@ export default function ReportFlow() {
 
   function reset() {
     if (photo) URL.revokeObjectURL(photo.url);
-    if (fileInput.current) fileInput.current.value = "";
+    for (const input of [cameraInput, galleryInput]) if (input.current) input.current.value = "";
     setPhoto(null);
+    setLocations(null);
     setAnalysis(null);
+    setNotes("");
     setResult(null);
     setError("");
     setStep("home");
@@ -97,10 +139,17 @@ export default function ReportFlow() {
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col bg-background">
       <input
-        ref={fileInput}
+        ref={cameraInput}
         type="file"
         accept="image/*"
         capture="environment"
+        className="hidden"
+        onChange={(e) => onPhotoSelected(e.target.files?.[0])}
+      />
+      <input
+        ref={galleryInput}
+        type="file"
+        accept="image/*"
         className="hidden"
         onChange={(e) => onPhotoSelected(e.target.files?.[0])}
       />
@@ -116,12 +165,22 @@ export default function ReportFlow() {
         </Centered>
       )}
 
-      {step === "review" && analysis && photo && position && (
+      {step === "review" && analysis && photo && locations && position && (
         <Review
           photoUrl={photo.url}
+          locations={locations}
+          locationChoice={locationChoice}
           position={position}
+          onLocationChoice={setLocationChoice}
+          onMapPick={(lat, lng) => {
+            setLocations({ ...locations, map: { lat, lng, source: "map" } });
+            setLocationChoice("map");
+          }}
           analysis={analysis}
           aiSource={aiSource}
+          notes={notes}
+          onNotes={setNotes}
+          onRegenerate={regenerate}
           onChange={setAnalysis}
           onBack={reset}
           onNext={() => setStep("auth")}
@@ -148,7 +207,7 @@ export default function ReportFlow() {
   );
 }
 
-function Home({ onStart }: { onStart: () => void }) {
+function Home({ onStart }: { onStart: (source: "camera" | "gallery") => void }) {
   const steps = [
     { icon: Camera, text: "Zrób zdjęcie usterki lub bariery" },
     { icon: Sparkles, text: "AI rozpozna problem i napisze oficjalne zgłoszenie" },
@@ -179,8 +238,14 @@ function Home({ onStart }: { onStart: () => void }) {
       </ol>
 
       <div className="mt-auto px-6 pb-[max(2rem,env(safe-area-inset-bottom))]">
-        <button onClick={onStart} className="btn-primary flex items-center justify-center gap-3 py-5 text-lg">
+        <button onClick={() => onStart("camera")} className="btn-primary flex items-center justify-center gap-3 py-5 text-lg">
           <Camera className="size-6" /> Zgłoś problem
+        </button>
+        <button
+          onClick={() => onStart("gallery")}
+          className="mt-3 flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white py-3.5 font-medium text-slate-700"
+        >
+          <ImageIcon className="size-5" /> Wybierz zdjęcie z galerii
         </button>
         <p className="mt-3 text-center text-xs text-slate-500">
           Zdjęcia z tego samego miejsca łączymy w jedno zgłoszenie – im więcej osób, tym wyższy priorytet.
@@ -192,37 +257,55 @@ function Home({ onStart }: { onStart: () => void }) {
 
 function Review(props: {
   photoUrl: string;
+  locations: { device: Position; exif: Position | null; map: Position | null };
+  locationChoice: LocationChoice;
   position: Position;
+  onLocationChoice: (c: LocationChoice) => void;
+  onMapPick: (lat: number, lng: number) => void;
   analysis: Analysis;
   aiSource: "ai" | "mock";
+  notes: string;
+  onNotes: (n: string) => void;
+  onRegenerate: () => Promise<void>;
   onChange: (a: Analysis) => void;
   onBack: () => void;
   onNext: () => void;
 }) {
-  const { analysis, onChange, position } = props;
+  const { analysis, onChange } = props;
+  const notDetected = analysis.category === DEFAULT_CATEGORY;
+  const canSend = !notDetected && analysis.title.trim().length >= 3 && analysis.formal_report.trim().length >= 20;
+
+  const notesSection = (
+    <NotesSection notes={props.notes} onNotes={props.onNotes} onRegenerate={props.onRegenerate} highlight={notDetected} />
+  );
+
   return (
     <div className="flex flex-1 flex-col">
       <TopBar title="Sprawdź zgłoszenie" onBack={props.onBack} />
       <div className="flex-1 space-y-5 px-5 pb-6">
         <PhotoPreview url={props.photoUrl} />
 
-        <div className="flex flex-wrap items-center gap-2 text-xs">
-          <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2.5 py-1 font-medium text-brand">
-            <Sparkles className="size-3.5" />
-            {props.aiSource === "ai" ? "Wygenerowane przez AI" : "Tryb demo (AI niedostępne)"}
-          </span>
-          <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1 text-slate-600">
-            <MapPin className="size-3.5" />
-            {position.demo
-              ? "Lokalizacja demonstracyjna"
-              : `${position.lat.toFixed(5)}, ${position.lng.toFixed(5)}${position.accuracy ? ` (±${Math.round(position.accuracy)} m)` : ""}`}
-          </span>
-        </div>
+        <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2.5 py-1 text-xs font-medium text-brand">
+          <Sparkles className="size-3.5" />
+          {props.aiSource === "ai" ? "Wygenerowane przez AI" : "Tryb demo (AI niedostępne)"}
+        </span>
+
+        {notDetected && (
+          <div className="rounded-2xl bg-amber-50 p-4 text-amber-900">
+            <p className="flex items-center gap-2 font-semibold">
+              <ScanSearch className="size-5" /> Nie rozpoznaliśmy problemu na zdjęciu
+            </p>
+            <p className="mt-1 text-sm">Opisz go własnymi słowami – AI przygotuje zgłoszenie na tej podstawie. Możesz też wybrać kategorię ręcznie.</p>
+          </div>
+        )}
+        {notDetected && notesSection}
+
+        <LocationSection {...props} />
 
         <fieldset>
           <legend className="label">Kategoria</legend>
           <div className="mt-2 grid grid-cols-2 gap-2">
-            {CATEGORIES.map((c) => {
+            {REPORTABLE_CATEGORIES.map((c) => {
               const { icon: Icon } = CATEGORY_STYLE[c];
               const active = analysis.category === c;
               return (
@@ -259,18 +342,128 @@ function Review(props: {
             rows={9}
             className="input mt-2 text-sm leading-relaxed"
           />
+          <span className="mt-1 block text-xs text-slate-500">Lokalizację i datę system dopisze automatycznie.</span>
         </label>
+
+        {!notDetected && notesSection}
       </div>
       <div className="sticky bottom-0 border-t border-slate-200 bg-white/95 px-5 py-4 backdrop-blur pb-[max(1rem,env(safe-area-inset-bottom))]">
-        <button
-          onClick={props.onNext}
-          disabled={analysis.title.trim().length < 3 || analysis.formal_report.trim().length < 20}
-          className="btn-primary"
-        >
+        {notDetected && <p className="mb-2 text-center text-xs text-amber-700">Dodaj opis lub wybierz kategorię, aby wysłać.</p>}
+        <button onClick={props.onNext} disabled={!canSend} className="btn-primary">
           Dalej – potwierdź i wyślij
         </button>
       </div>
     </div>
+  );
+}
+
+function LocationSection(props: {
+  locations: { device: Position; exif: Position | null; map: Position | null };
+  locationChoice: LocationChoice;
+  position: Position;
+  onLocationChoice: (c: LocationChoice) => void;
+  onMapPick: (lat: number, lng: number) => void;
+}) {
+  const { locations, locationChoice, position } = props;
+  const options: { id: LocationChoice; label: string; icon: typeof MapPin; available: boolean }[] = [
+    {
+      id: "device",
+      label: locations.device.source === "demo" ? "Demo" : "Moje położenie",
+      icon: LocateFixed,
+      available: true,
+    },
+    { id: "exif", label: "Ze zdjęcia", icon: ImageIcon, available: locations.exif !== null },
+    { id: "map", label: "Na mapie", icon: MapIcon, available: true },
+  ];
+  const visible = options.filter((o) => o.available);
+
+  return (
+    <section>
+      <p className="label">Lokalizacja</p>
+      <div className={`mt-2 grid gap-1 rounded-xl bg-slate-100 p-1 ${visible.length === 3 ? "grid-cols-3" : "grid-cols-2"}`}>
+        {visible.map(({ id, label, icon: Icon }) => (
+          <button
+            key={id}
+            type="button"
+            onClick={() => props.onLocationChoice(id)}
+            className={`flex items-center justify-center gap-1.5 rounded-lg px-2 py-2 text-sm transition ${
+              locationChoice === id ? "bg-white font-semibold text-brand shadow-sm" : "text-slate-600"
+            }`}
+          >
+            <Icon className="size-4" /> {label}
+          </button>
+        ))}
+      </div>
+
+      {locationChoice === "map" && (
+        <div className="mt-2 h-56 overflow-hidden rounded-xl border border-slate-200">
+          <PickerMap
+            value={locations.map ?? locations.exif ?? locations.device}
+            reference={locations.device}
+            onPick={props.onMapPick}
+          />
+        </div>
+      )}
+
+      <p className="mt-2 flex items-center gap-1.5 text-xs text-slate-600">
+        <MapPin className="size-3.5 shrink-0" />
+        {locationChoice === "map" && !locations.map
+          ? "Dotknij mapy, aby wskazać miejsce problemu."
+          : position.source === "demo"
+            ? "Brak dostępu do lokalizacji – użyto lokalizacji demonstracyjnej."
+            : `${position.lat.toFixed(5)}, ${position.lng.toFixed(5)}${position.accuracy ? ` (±${Math.round(position.accuracy)} m)` : ""}`}
+      </p>
+    </section>
+  );
+}
+
+function NotesSection(props: {
+  notes: string;
+  onNotes: (n: string) => void;
+  onRegenerate: () => Promise<void>;
+  highlight: boolean;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [failed, setFailed] = useState(false);
+
+  async function run() {
+    setBusy(true);
+    setFailed(false);
+    try {
+      await props.onRegenerate();
+    } catch {
+      setFailed(true);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <section className={props.highlight ? "rounded-2xl border-2 border-amber-300 bg-white p-3" : undefined}>
+      <label className="block">
+        <span className="label flex items-center gap-1.5">
+          <NotebookPen className="size-3.5" /> Twój opis {props.highlight ? "" : "(opcjonalnie)"}
+        </span>
+        <textarea
+          value={props.notes}
+          onChange={(e) => props.onNotes(e.target.value)}
+          maxLength={NOTES_MAX_LENGTH}
+          rows={3}
+          placeholder="Np. dziura jest tu od tygodnia, wieczorem jej nie widać, wpadł w nią rowerzysta"
+          className="input mt-2 text-sm"
+        />
+      </label>
+      <button
+        type="button"
+        onClick={run}
+        disabled={busy || !props.notes.trim()}
+        className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl border border-brand px-3 py-2.5 text-sm font-semibold text-brand disabled:opacity-40"
+      >
+        {busy ? <Loader2 className="size-4 animate-spin" /> : <Sparkles className="size-4" />}
+        {busy ? "Generuję zgłoszenie…" : "Uwzględnij opis w zgłoszeniu"}
+      </button>
+      {failed && <p className="mt-1 text-xs text-rose-600">Nie udało się wygenerować zgłoszenia. Spróbuj ponownie.</p>}
+    </section>
   );
 }
 
