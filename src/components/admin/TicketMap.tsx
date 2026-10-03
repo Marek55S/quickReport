@@ -16,7 +16,7 @@ type Props = {
 
 export default function TicketMap({ tickets, selectedId, onSelect }: Props) {
   return (
-    <MapContainer center={KRAKOW} zoom={14} className="size-full" scrollWheelZoom>
+    <MapContainer center={KRAKOW} zoom={14} className="ticket-map size-full" scrollWheelZoom>
       <TileLayer
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"

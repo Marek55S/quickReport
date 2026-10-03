@@ -27,6 +27,7 @@ import {
   NOTES_MAX_LENGTH,
   REPORTABLE_CATEGORIES,
   type Analysis,
+  type Category,
   type SubmitResult,
 } from "@/lib/types";
 import { downscaleImage, getPosition, readPhotoPosition, type Position } from "./media";
@@ -316,30 +317,11 @@ function Review(props: {
         )}
         {notDetected && notesSection}
 
-        <LocationSection {...props} />
-
-        <fieldset>
-          <legend className="label">Kategoria</legend>
-          <div className="mt-2 grid grid-cols-2 gap-2">
-            {REPORTABLE_CATEGORIES.map((c) => {
-              const { icon: Icon } = CATEGORY_STYLE[c];
-              const active = analysis.category === c;
-              return (
-                <button
-                  key={c}
-                  type="button"
-                  onClick={() => onChange({ ...analysis, category: c })}
-                  className={`flex items-center gap-2 rounded-xl border px-3 py-2.5 text-left text-sm transition ${
-                    active ? "border-brand bg-blue-50 font-semibold text-brand" : "border-slate-200 bg-white text-slate-700"
-                  }`}
-                >
-                  <Icon className="size-4 shrink-0" />
-                  {CATEGORY_LABELS[c]}
-                </button>
-              );
-            })}
-          </div>
-        </fieldset>
+        <CategoryPicker
+          value={analysis.category}
+          onChange={(category) => onChange({ ...analysis, category })}
+          forceOpen={notDetected}
+        />
 
         <label className="block">
           <span className="label">Tytuł</span>
@@ -355,11 +337,13 @@ function Review(props: {
           <textarea
             value={analysis.formal_report}
             onChange={(e) => onChange({ ...analysis, formal_report: e.target.value })}
-            rows={9}
-            className="input mt-2 text-sm leading-relaxed"
+            rows={8}
+            className="input mt-2 field-sizing-content min-h-40 text-sm leading-relaxed"
           />
           <span className="mt-1 block text-xs text-slate-500">Lokalizację i datę system dopisze automatycznie.</span>
         </label>
+
+        <LocationSection {...props} />
 
         {!notDetected && notesSection}
       </div>
@@ -370,6 +354,61 @@ function Review(props: {
         </button>
       </div>
     </div>
+  );
+}
+
+/** Shows the AI-chosen category compactly; the full list opens only when the resident wants to change it. */
+function CategoryPicker(props: { value: Category; onChange: (c: Category) => void; forceOpen: boolean }) {
+  const [open, setOpen] = useState(false);
+  const expanded = open || props.forceOpen;
+  const selected = props.value === DEFAULT_CATEGORY ? null : props.value;
+  const SelectedIcon = selected ? CATEGORY_STYLE[selected].icon : null;
+
+  return (
+    <fieldset>
+      <legend className="label">Kategoria</legend>
+      {selected && SelectedIcon && (
+        <div className="mt-2 flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-3 py-2.5">
+          <span className={`flex size-9 shrink-0 items-center justify-center rounded-lg ${CATEGORY_STYLE[selected].chip}`}>
+            <SelectedIcon className="size-5" aria-hidden />
+          </span>
+          <span className="flex-1 font-medium">{CATEGORY_LABELS[selected]}</span>
+          <button
+            type="button"
+            onClick={() => setOpen(!open)}
+            aria-expanded={expanded}
+            className="rounded-lg px-2 py-1 text-sm font-semibold text-brand hover:bg-blue-50"
+          >
+            {expanded ? "Zwiń" : "Zmień"}
+          </button>
+        </div>
+      )}
+      {expanded && (
+        <div className="mt-2 grid grid-cols-2 gap-2">
+          {REPORTABLE_CATEGORIES.map((c) => {
+            const { icon: Icon } = CATEGORY_STYLE[c];
+            const active = props.value === c;
+            return (
+              <button
+                key={c}
+                type="button"
+                aria-pressed={active}
+                onClick={() => {
+                  props.onChange(c);
+                  setOpen(false);
+                }}
+                className={`flex items-center gap-2 rounded-xl border px-3 py-2.5 text-left text-sm transition ${
+                  active ? "border-brand bg-blue-50 font-semibold text-brand" : "border-slate-200 bg-white text-slate-700"
+                }`}
+              >
+                <Icon className="size-4 shrink-0" aria-hidden />
+                {CATEGORY_LABELS[c]}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </fieldset>
   );
 }
 
@@ -445,7 +484,9 @@ function NotesSection(props: {
 
   // The result appears at the bottom of the screen, under the sticky send bar; bring it into view.
   useEffect(() => {
-    if (outcome) feedback.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    if (!outcome) return;
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    feedback.current?.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "center" });
   }, [outcome]);
 
   async function run() {

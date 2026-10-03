@@ -15,10 +15,10 @@ const TicketMap = dynamic(() => import("./TicketMap"), {
 
 const REFRESH_MS = 10_000;
 
-const TABS: { status: TicketStatus; label: string }[] = [
-  { status: "OPEN", label: "Otwarte" },
-  { status: "IN_PROGRESS", label: "W realizacji" },
-  { status: "RESOLVED", label: "Rozwiązane" },
+const TABS: { status: TicketStatus; label: string; empty: string }[] = [
+  { status: "OPEN", label: "Otwarte", empty: "Brak otwartych zgłoszeń. Nowe zgłoszenia mieszkańców pojawią się tu automatycznie." },
+  { status: "IN_PROGRESS", label: "W realizacji", empty: "Żadne zgłoszenie nie jest teraz w realizacji." },
+  { status: "RESOLVED", label: "Rozwiązane", empty: "Nie ma jeszcze rozwiązanych zgłoszeń." },
 ];
 
 export default function Dashboard() {
@@ -79,11 +79,13 @@ export default function Dashboard() {
 
   return (
     <div className="flex min-h-dvh flex-col bg-slate-100 lg:h-dvh">
-      <header className="bg-brand-dark px-4 py-4 text-white sm:px-6">
+      <header className="bg-brand-dark px-4 py-3 text-white sm:px-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h1 className="text-xl font-semibold">Panel zgłoszeń miejskich</h1>
-            <p className="text-sm text-blue-200">QuickReport · priorytety wyliczane z liczby zgłoszeń mieszkańców</p>
+            <h1 className="text-lg font-semibold sm:text-xl">Panel zgłoszeń miejskich</h1>
+            <p className="hidden text-sm text-blue-200 sm:block">
+              QuickReport · priorytety wyliczane z liczby zgłoszeń mieszkańców
+            </p>
           </div>
           <div className="flex items-center gap-4">
             <p className="flex items-center gap-1.5 text-xs text-blue-200">
@@ -98,20 +100,15 @@ export default function Dashboard() {
             </button>
           </div>
         </div>
-        <div className="mt-4 grid grid-cols-3 gap-3">
-          <Stat icon={ClipboardList} label="Zgłoszenia" value={list.length} />
-          <Stat icon={Users} label="Głosy mieszkańców" value={totalReports} />
-          <Stat icon={Flame} label="Wysoki priorytet" value={highPriority} />
-        </div>
       </header>
 
-      <div className="grid flex-1 gap-4 p-4 sm:p-6 lg:min-h-0 lg:grid-cols-[minmax(0,3fr)_minmax(360px,2fr)]">
-        <section className="h-80 overflow-hidden rounded-2xl bg-white shadow-sm sm:h-[28rem] lg:h-auto">
+      <div className="grid flex-1 grid-cols-1 gap-4 p-4 sm:p-6 lg:min-h-0 lg:grid-cols-[minmax(0,3fr)_minmax(360px,2fr)]">
+        <section className="h-72 min-w-0 overflow-hidden rounded-2xl bg-white shadow-sm sm:h-[28rem] lg:h-auto">
           <TicketMap tickets={list} selectedId={selectedId} onSelect={setSelectedId} />
         </section>
 
-        <section className="flex min-h-0 flex-col rounded-2xl bg-white shadow-sm">
-          <nav className="flex gap-1 border-b border-slate-200 p-2">
+        <section className="flex min-h-0 min-w-0 flex-col rounded-2xl bg-white shadow-sm">
+          <nav className="flex gap-1 p-2" aria-label="Status zgłoszeń">
             {TABS.map((tab) => (
               <button
                 key={tab.status}
@@ -124,6 +121,12 @@ export default function Dashboard() {
               </button>
             ))}
           </nav>
+          {/* Summary of the active tab; replaces the large stat tiles. */}
+          <div className="flex flex-wrap items-center gap-x-5 gap-y-1 border-b border-slate-200 px-4 pb-3 text-sm text-slate-600">
+            <Stat icon={ClipboardList} label="zgłoszeń" value={list.length} />
+            <Stat icon={Users} label="głosów mieszkańców" value={totalReports} />
+            <Stat icon={Flame} label="wysoki priorytet" value={highPriority} accent={highPriority > 0} />
+          </div>
 
           <div className="min-h-0 flex-1 overflow-y-auto">
             {tickets === null ? (
@@ -131,7 +134,7 @@ export default function Dashboard() {
                 <Loader2 className="size-6 animate-spin" />
               </div>
             ) : list.length === 0 ? (
-              <p className="p-10 text-center text-slate-500">Brak zgłoszeń w tej kategorii.</p>
+              <p className="px-6 py-12 text-center text-slate-500">{TABS.find((t) => t.status === status)?.empty}</p>
             ) : (
               <ol className="divide-y divide-slate-100">
                 {list.map((t, i) => (
@@ -153,13 +156,13 @@ export default function Dashboard() {
   );
 }
 
-function Stat({ icon: Icon, label, value }: { icon: typeof Users; label: string; value: number }) {
+function Stat(props: { icon: typeof Users; label: string; value: number; accent?: boolean }) {
+  const { icon: Icon } = props;
   return (
-    <div className="rounded-xl bg-white/10 px-3 py-2.5">
-      <p className="flex items-center gap-1.5 text-xs text-blue-200">
-        <Icon className="size-3.5" /> {label}
-      </p>
-      <p className="mt-0.5 text-2xl font-bold">{value}</p>
+    <div className="flex items-center gap-1.5">
+      <Icon className={`size-4 ${props.accent ? "text-red-600" : "text-slate-400"}`} aria-hidden />
+      <span className={`font-semibold tabular-nums ${props.accent ? "text-red-600" : "text-slate-900"}`}>{props.value}</span>
+      <span>{props.label}</span>
     </div>
   );
 }

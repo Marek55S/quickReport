@@ -32,3 +32,8 @@ body {
     @apply text-xs font-semibold uppercase tracking-wide text-slate-500;
   }
 }
+
+/* Quiet basemap on the dashboard so severity markers carry the colour. */
+.ticket-map .leaflet-tile-pane {
+  filter: saturate(0.25) contrast(0.95) brightness(1.04);
+}
