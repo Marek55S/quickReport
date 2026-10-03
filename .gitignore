@@ -1,0 +1,14 @@
+# Credentials and private workstation state
+.env
+.env.*
+!.env.example
+!.env.*.example
+.codex/
+
+# Temporary and editor files
+*.orig
+*.rej
+*.swp
+*~
+.DS_Store
+Thumbs.db
