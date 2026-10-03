@@ -2,7 +2,7 @@ import { FieldValue, Timestamp } from "@google-cloud/firestore";
 import ngeohash from "ngeohash";
 import { db } from "./firestore";
 import { imageUrl } from "./storage";
-import type { Analysis, SubmitResult, Ticket, TicketStatus } from "./types";
+import type { Analysis, LocationSource, SubmitResult, Ticket, TicketStatus } from "./types";
 
 // 8 characters ≈ 38 m × 19 m cell.
 export const GEOHASH_PRECISION = 8;
@@ -15,6 +15,7 @@ const openClusters = db.collection("open_clusters");
 export type ReportInput = Analysis & {
   lat: number;
   lng: number;
+  locationSource?: LocationSource;
   imagePath: string;
 };
 
@@ -31,6 +32,7 @@ export async function submitReport(input: ReportInput): Promise<SubmitResult> {
     image_path: input.imagePath,
     gps_lat: input.lat,
     gps_lng: input.lng,
+    location_source: input.locationSource,
     created_at: FieldValue.serverTimestamp(),
   };
 
@@ -66,6 +68,7 @@ export async function submitReport(input: ReportInput): Promise<SubmitResult> {
       formal_report: input.formal_report,
       gps_lat: input.lat,
       gps_lng: input.lng,
+      location_source: input.locationSource,
       status: "OPEN",
       severity_score: 1,
       image_path: input.imagePath,
@@ -137,6 +140,7 @@ function toTicket(id: string, data: FirebaseFirestore.DocumentData): Ticket {
     gps_lng: data.gps_lng,
     status: data.status,
     severity_score: data.severity_score,
+    location_source: data.location_source,
     image_url: imageUrl(data.image_path),
     created_at: iso(data.created_at),
     updated_at: iso(data.updated_at),

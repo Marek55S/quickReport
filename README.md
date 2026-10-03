@@ -2,6 +2,8 @@
 
 One-snap city issue reporting: a resident takes a photo, AI classifies the problem and drafts a formal report, and duplicate reports from the same spot are clustered into one prioritized ticket for city officials.
 
+Planned features: [docs/ROADMAP.md](docs/ROADMAP.md).
+
 ## Running locally
 
 Requires Node.js 24 and pnpm.
