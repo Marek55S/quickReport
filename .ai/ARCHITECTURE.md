@@ -2,20 +2,18 @@
 
 ## Current state
 
-The repository currently contains a reusable agent workflow and a project README.
-There is no product implementation, selected challenge, application runtime, or deployment configuration.
+The project is **QuickReport**, a one-snap city issue reporting system for the HackYeah 2026 SMART CITY challenge.
+Plan and task status: [`.ai/specs/2026-10-03-one-snap-reporting-mvp.md`](specs/2026-10-03-one-snap-reporting-mvp.md).
 
 | Area | Current decision |
 | --- | --- |
-| Challenge and intended users | Not selected |
-| Product scope and demo scenario | Not selected |
-| Application components and stack | Not selected |
-| Data sources and external integrations | Not selected |
-| Persistence and identity | Not selected; may be unnecessary |
-| Hosting and deployment | Not selected |
-| Build, test, and run commands | Not configured |
-
-These entries describe the template's current state, not requirements to introduce every component.
+| Challenge and intended users | SMART CITY; residents reporting issues and city officials triaging them |
+| Product scope and demo scenario | See the specification |
+| Application components and stack | Next.js 16 (App Router, TypeScript) + Tailwind CSS 4, one app for both frontends; implemented as a scaffold only |
+| Data sources and external integrations | Google Cloud project `quickreport-hy26`: Gemini `gemini-2.5-flash` on Vertex AI (`europe-west1`), Firestore Native (`eur3`), private Cloud Storage bucket `quickreport-hy26-report-images` (`europe-central2`); OpenStreetMap tiles proposed for the map |
+| Persistence and identity | Firestore collections `tickets` (+ `images` subcollection) and `open_clusters`; auth via Application Default Credentials; mObywatel login planned as a mock; no admin auth |
+| Hosting and deployment | Proposed: Cloud Run (`output: "standalone"` is configured); not deployed |
+| Build, test, and run commands | `pnpm install`, `pnpm dev`, `pnpm build`, `pnpm lint`, `pnpm check:clustering`, `pnpm seed` |
 
 ## Existing repository map
 
@@ -30,6 +28,16 @@ These entries describe the template's current state, not requirements to introdu
 | `.ai/decisions/` | Decision template and future durable decisions |
 | `.ai/research/` | Investigation template and future evidence notes |
 | `.ai/templates/` | Reusable PR description template |
+| `src/app/page.tsx` | Resident mobile home (placeholder for the report flow) |
+| `src/app/admin/page.tsx` | Official dashboard (placeholder for map and table) |
+| `src/app/manifest.ts`, `src/app/icon.svg` | PWA manifest and app icon |
+| `src/lib/tickets.ts` | Clustering upsert (`submitReport`: geohash-8 cell + 8 neighbours, same category, Firestore transaction), status changes, listing |
+| `src/lib/ai.ts`, `src/app/api/analyze/route.ts` | Gemini image analysis with structured JSON output and mock fallback |
+| `src/lib/storage.ts`, `src/app/api/images/` | Photo upload to the private bucket and proxy for serving photos |
+| `scripts/` | Clustering check and demo seed against the configured project |
+| `next.config.ts` | Next.js config with standalone output for Cloud Run |
+| `.env.example` | Required environment variables |
+| `Details - SMART CITY.pdf` | Challenge description, judging criteria, submission requirements |
 
 ## Updating this map
 

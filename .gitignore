@@ -12,3 +12,20 @@
 *~
 .DS_Store
 Thumbs.db
+
+# Dependencies and build output
+/node_modules
+/.next/
+/out/
+/build
+/coverage
+*.tsbuildinfo
+next-env.d.ts
+*.pem
+
+# Debug logs
+npm-debug.log*
+.pnpm-debug.log*
+
+# Google Cloud credentials
+*service-account*.json

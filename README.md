@@ -1,7 +1,24 @@
-# HackYeah2026
+# QuickReport – HackYeah 2026 (SMART CITY)
 
-A reusable hackathon repository template with an agent workflow.
-The challenge, product scope, technology stack, and deployment target are not selected yet.
+One-snap city issue reporting: a resident takes a photo, AI classifies the problem and drafts a formal report, and duplicate reports from the same spot are clustered into one prioritized ticket for city officials.
+
+## Running locally
+
+Requires Node.js 24 and pnpm.
+
+```bash
+pnpm install
+cp .env.example .env.local   # AI_MOCK=1 works without Google Cloud
+pnpm dev                     # http://localhost:3000 (resident), /admin (official)
+```
+
+For real Google Cloud services, run `gcloud auth application-default login`, set `AI_MOCK=0` in `.env.local`, and use:
+
+- `pnpm seed`: reset Firestore and load demo tickets around Kraków
+- `pnpm check:clustering`: verify the clustering rules against Firestore (cleans up after itself)
+
+Other commands: `pnpm build`, `pnpm lint`.
+Camera and GPS on a phone require HTTPS (deployed URL or a tunnel).
 
 Shared instructions, skills, specifications, and decision records are intended to stay in version control.
 
