@@ -6,7 +6,7 @@
 - Created: `2026-10-03`
 - Updated: `2026-10-03`
 - Owner: `Marek55S`
-- Authorization: `2026-10-03: user approved the Google Cloud stack and Task 1 ("zacznij stawiać szkielet"). After Google Cloud setup ("gotowe") the user approved continuing with Tasks 2 and 3. Tasks 4–7 not yet authorized.`
+- Authorization: `2026-10-03: user approved the Google Cloud stack and Task 1 ("zacznij stawiać szkielet"). After Google Cloud setup ("gotowe") the user approved continuing with Tasks 2 and 3. After the user's commit ("zacommitowałem, rób dalej") Tasks 4–6 were approved. Task 7 (deploy and publishing) not yet authorized.`
 
 ## Goal
 
@@ -195,7 +195,7 @@ If time runs short, cut in this order: PWA manifest polish, attaching extra imag
 
 ### Task 4: Report submission endpoint [25 min]
 
-- [ ] Complete
+- [x] Complete
 - Goal: `POST /api/reports` stores the photo, computes the geohash, and calls `submitReport`.
 - Allowed files:
   - `src/app/api/reports/route.ts`, `src/lib/geohash.ts`
@@ -217,16 +217,16 @@ If time runs short, cut in this order: PWA manifest polish, attaching extra imag
 - Dependencies:
   - Tasks 1 and 2.
 - Execution result:
-  - Actual files: `Not started`
+  - Actual files: `src/app/api/reports/route.ts`
   - Commits: `Not created`
-  - Validation: `Not run`
-  - Deviations: `None`
-  - Remaining work: `Not started`
-  - Next step: `Not started`
+  - Validation: `curl` against `pnpm dev`: report next to the seeded pothole ticket returned `merged: true`, severity 8, HTTP 200; report at a new spot returned `merged: false`, severity 1, HTTP 201; request without an image returned 400.
+  - Deviations: Geohash is computed inside `submitReport` (Task 2) instead of a separate `src/lib/geohash.ts`.
+  - Remaining work: None
+  - Next step: None
 
 ### Task 5: Resident mobile flow [45 min]
 
-- [ ] Complete
+- [x] Complete
 - Goal: Mobile-first UI implementing the full resident flow.
 - Allowed files:
   - `src/app/page.tsx`, `src/app/report/`, `src/components/resident/`
@@ -250,16 +250,16 @@ If time runs short, cut in this order: PWA manifest polish, attaching extra imag
 - Dependencies:
   - Tasks 3 and 4.
 - Execution result:
-  - Actual files: `Not started`
+  - Actual files: `src/app/page.tsx`, `src/components/resident/ReportFlow.tsx`, `src/components/resident/media.ts`, `src/components/categories.ts`, `src/app/globals.css`, `package.json` (`lucide-react`)
   - Commits: `Not created`
-  - Validation: `Not run`
-  - Deviations: `None`
-  - Remaining work: `Not started`
-  - Next step: `Not started`
+  - Validation: Playwright (playwright-core in the scratch directory, system Chrome, 390×844 mobile viewport, mocked geolocation) drove the flow: photo selection → "Analizuję zdjęcie" → review with real Gemini output and GPS ±8 m → mObywatel mock → "Zgłoszenie wysłane" with a merged message ("zgłosiło już 9 osób"). Screenshots reviewed manually. Not yet tested on a physical phone over HTTPS.
+  - Deviations: Location is requested when "Zgłoś problem" is tapped, in parallel with taking the photo; denial or timeout falls back to a Kraków demo location shown as "Lokalizacja demonstracyjna". Category, title, and report are editable before sending.
+  - Remaining work: Physical phone test over HTTPS (Task 7).
+  - Next step: Task 7
 
 ### Task 6: Official dashboard [45 min]
 
-- [ ] Complete
+- [x] Complete
 - Goal: `/admin` with a prioritized table, severity map, and status changes.
 - Allowed files:
   - `src/app/admin/`, `src/components/admin/`, `src/app/api/tickets/`
@@ -282,12 +282,12 @@ If time runs short, cut in this order: PWA manifest polish, attaching extra imag
 - Dependencies:
   - Task 2 (seed data); Task 1.
 - Execution result:
-  - Actual files: `Not started`
+  - Actual files: `src/app/admin/page.tsx`, `src/components/admin/Dashboard.tsx`, `src/components/admin/TicketMap.tsx`, `src/components/admin/severity.ts`, `src/app/api/tickets/route.ts`, `src/app/api/tickets/[id]/route.ts`
   - Commits: `Not created`
-  - Validation: `Not run`
-  - Deviations: `None`
-  - Remaining work: `Not started`
-  - Next step: `Not started`
+  - Validation: `GET /api/tickets?status=OPEN` returned tickets ordered 8, 4, 3, 2, 1, 1, 1; `PATCH` to `RESOLVED` returned 200 and the ticket moved to `?status=RESOLVED`; invalid status 400; unknown ID 404. Headless Chrome screenshot at 1440×900 showed the map with severity-sized and coloured markers, stat tiles, tabs, and the sorted list. `pnpm build` and `pnpm lint` passed.
+  - Deviations: Added tabs for `IN_PROGRESS` and `RESOLVED`, summary tiles, and an expandable row with all merged photos and the formal report. Status buttons live in the expanded row rather than a map popup; clicking a marker selects the row.
+  - Remaining work: None
+  - Next step: Task 7
 
 ### Task 7: Deploy and submission package [30 min]
 
