@@ -16,3 +16,5 @@ They illustrate the kinds of problems residents report and are not photos of the
 | `scripts/seed-images/repaired.jpg` | [2022-12-13 12 03 34 Patched asphalt from a recently repaired water main break along Lochatong Road at its eastern intersection with Forest Lane in the Mountainview section of Ewing Township, Mercer County, New Jersey.jpg](https://commons.wikimedia.org/wiki/File:2022-12-13_12_03_34_Patched_asphalt_from_a_recently_repaired_water_main_break_along_Lochatong_Road_at_its_eastern_intersection_with_Forest_Lane_in_the_Mountainview_section_of_Ewing_Township,_Mercer_County,_New_Jersey.jpg) | Famartin | CC BY-SA 4.0 |
 
 Other resources: map tiles and geocoding © [OpenStreetMap](https://www.openstreetmap.org/copyright) contributors (ODbL); colours and the Lato/Ubuntu typefaces follow the City of Kraków visual identity guidelines; the City of Kraków logo and crest are not used.
+
+Logo (`docs/submission/logo/`): own design; the wordmark is set in Ubuntu Medium (Ubuntu Font Licence 1.0, © Canonical Ltd.) and converted to outlines. It does not use the City of Kraków logo or crest.
