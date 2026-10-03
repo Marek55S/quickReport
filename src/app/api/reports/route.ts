@@ -49,7 +49,13 @@ export async function POST(request: Request) {
     imagePath,
     reporterId: reporter.success ? reporter.data : undefined,
     ownerId: readCitizen(request),
+    camera: shortText(form?.get("camera")),
+    clientDevice: shortText(form?.get("client_device")),
     address,
   });
   return Response.json(result, { status: result.merged ? 200 : 201 });
+}
+
+function shortText(value: FormDataEntryValue | null | undefined): string | null {
+  return typeof value === "string" && value.trim() ? value.trim().slice(0, 80) : null;
 }

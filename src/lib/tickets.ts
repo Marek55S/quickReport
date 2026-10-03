@@ -23,6 +23,9 @@ export type ReportInput = Analysis & {
   reporterId?: string;
   ownerId?: string | null;
   address?: string | null;
+  /** Device metadata for officials: camera from EXIF and the submitting browser (not used for identity). */
+  camera?: string | null;
+  clientDevice?: string | null;
 };
 
 function clusterId(geohash: string, category: string) {
@@ -39,6 +42,8 @@ export async function submitReport(input: ReportInput): Promise<SubmitResult> {
     gps_lat: input.lat,
     gps_lng: input.lng,
     location_source: input.locationSource,
+    camera: input.camera ?? null,
+    client_device: input.clientDevice ?? null,
     created_at: FieldValue.serverTimestamp(),
   };
 
@@ -49,6 +54,8 @@ export async function submitReport(input: ReportInput): Promise<SubmitResult> {
     ticket_id: ticketId,
     title: input.title,
     category: input.category,
+    // The resident's own letter text, shown in "Moje zgłoszenia" (the ticket keeps the first report's text).
+    formal_report: input.formal_report,
     address: input.address ?? null,
     image_path: input.imagePath,
     gps_lat: input.lat,
@@ -93,6 +100,8 @@ export async function submitReport(input: ReportInput): Promise<SubmitResult> {
       gps_lat: input.lat,
       gps_lng: input.lng,
       location_source: input.locationSource,
+      camera: input.camera ?? null,
+      client_device: input.clientDevice ?? null,
       address: input.address ?? null,
       danger_level: input.danger_level,
       danger_reason: input.danger_reason,
@@ -185,6 +194,10 @@ export async function listMyReports(reporterId: string | null, ownerId: string |
         image_url: imageUrl(doc.get("image_path")),
         created_at: iso(doc.get("created_at")),
         address: doc.get("address") ?? ticket.address ?? undefined,
+        formal_report: doc.get("formal_report") ?? ticket.formal_report,
+        gps_lat: doc.get("gps_lat"),
+        gps_lng: doc.get("gps_lng"),
+        dispatch_receipt: ticket.dispatch?.receipt,
         resolution_image_url: ticket.resolution_image_path ? imageUrl(ticket.resolution_image_path) : undefined,
         resolved_note: ticket.resolved_note,
         dispatched_at: optionalIso(ticket.dispatch?.sent_at),
@@ -304,6 +317,8 @@ function toTicket(id: string, data: FirebaseFirestore.DocumentData): Ticket {
     severity_score: data.severity_score,
     location_source: data.location_source,
     address: data.address ?? undefined,
+    camera: data.camera ?? undefined,
+    client_device: data.client_device ?? undefined,
     danger_level: data.danger_level ?? 1,
     danger_reason: data.danger_reason,
     resolution_image_url: data.resolution_image_path ? imageUrl(data.resolution_image_path) : undefined,

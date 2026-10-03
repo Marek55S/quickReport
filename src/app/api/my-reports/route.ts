@@ -1,4 +1,4 @@
-import { citizenLoginEnabled, DEMO_CITIZEN, readCitizen } from "@/lib/auth";
+import { citizenLoginEnabled, citizenProfile, readCitizen } from "@/lib/auth";
 import { listMyReports } from "@/lib/tickets";
 import { ReporterIdSchema } from "@/lib/types";
 
@@ -13,7 +13,7 @@ export async function GET(request: Request) {
   const reports = await listMyReports(reporter.success ? reporter.data : null, citizen);
   return Response.json({
     reports,
-    citizen: citizen ? { name: DEMO_CITIZEN.name } : null,
+    citizen: citizen ? citizenProfile(citizen) : null,
     login_available: citizenLoginEnabled(),
   });
 }

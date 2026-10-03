@@ -521,6 +521,15 @@ function TicketContent(props: TicketActionsProps & { ticket: Ticket; images: str
       </dd>
       <dt className="text-ink-muted">Zdjęcia</dt>
       <dd>{images.length}</dd>
+      {(t.camera || t.client_device) && (
+        <>
+          <dt className="text-ink-muted">Urządzenie</dt>
+          <dd>
+            {t.camera ? `aparat: ${t.camera}` : "aparat: brak danych EXIF"}
+            {t.client_device && ` · wysłane z: ${t.client_device}`}
+          </dd>
+        </>
+      )}
       <dt className="text-ink-muted">Pierwsze</dt>
       <dd>{new Date(t.created_at).toLocaleString("pl-PL")}</dd>
     </dl>

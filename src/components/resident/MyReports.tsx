@@ -3,14 +3,14 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { Lightbox, PhotoButton } from "@/components/Lightbox";
-import { ArrowLeft, Camera, Loader2, RefreshCw, Send, ShieldCheck } from "lucide-react";
+import { ArrowLeft, Camera, ChevronDown, Loader2, MapPin, RefreshCw, Send, ShieldCheck } from "lucide-react";
 import { CATEGORY_ICONS } from "@/components/categories";
 import { ticketNumber } from "@/components/ui";
 import type { MyReport } from "@/lib/types";
 import { useLang, useT } from "./i18n";
 import { getReporterId, signInCitizen, signOutCitizen } from "./reporter";
 
-type Ready = { kind: "ready"; reports: MyReport[]; citizen: { name: string } | null; loginAvailable: boolean };
+type Ready = { kind: "ready"; reports: MyReport[]; citizen: { name: string; pesel: string } | null; loginAvailable: boolean };
 type State = { kind: "loading" } | { kind: "error" } | Ready;
 
 export default function MyReports() {
@@ -110,6 +110,7 @@ const LOCALES = { pl: "pl-PL", en: "en-GB", uk: "uk-UA" } as const;
 function ReportRow({ report: r }: { report: MyReport }) {
   const t = useT();
   const locale = LOCALES[useLang()];
+  const [open, setOpen] = useState(false);
   const [viewer, setViewer] = useState<number | null>(null);
   const photos = [
     { src: r.image_url, alt: `${r.title} – ${t.before}`, caption: t.before },
@@ -121,6 +122,9 @@ function ReportRow({ report: r }: { report: MyReport }) {
   const stage = done.lastIndexOf(true) + 1;
   const dates = [r.created_at, r.dispatched_at, r.in_progress_at, r.resolved_at];
   const fmt = (iso?: string) => (iso ? new Date(iso).toLocaleDateString(locale, { day: "numeric", month: "short" }) : "");
+  const fmtFull = (iso: string) => new Date(iso).toLocaleString(locale, { dateStyle: "medium", timeStyle: "short" });
+  const detailsId = `report-${r.id}-details`;
+
   return (
     <li className="border-b border-rule py-4">
       <div className="flex gap-3">
@@ -145,7 +149,7 @@ function ReportRow({ report: r }: { report: MyReport }) {
         </div>
       </div>
 
-      {/* Three-segment progress, like a route indicator. */}
+      {/* Four-segment progress, like a route indicator. */}
       <ol className="mt-3 grid grid-cols-4 gap-1" aria-label={t.stageOf(stage, t.stages[stage - 1])}>
         {t.stages.map((label, i) => (
           <li key={label}>
@@ -157,28 +161,99 @@ function ReportRow({ report: r }: { report: MyReport }) {
           </li>
         ))}
       </ol>
-      {r.dispatch_unit && (
-        <p className="mt-2 flex items-center gap-1.5 text-sm text-ink-muted">
-          <Send className="size-3.5 shrink-0 text-primary" aria-hidden /> {t.sentTo(r.dispatch_unit)}
-        </p>
-      )}
 
-      {r.resolution_image_url && (
-        <figure className="mt-3 grid grid-cols-2 gap-2">
-          {photos.map((photo, i) => (
-            <div key={photo.caption}>
-              <PhotoButton
-                src={photo.src}
-                alt={photo.alt}
-                openLabel={t.enlarge}
-                onOpen={() => setViewer(i)}
-                className="aspect-[4/3] w-full rounded-lg bg-rule object-cover"
-              />
-              <p className="mt-1 text-xs font-bold text-ink-muted">{photo.caption}</p>
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        aria-expanded={open}
+        aria-controls={detailsId}
+        className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-lg border border-rule-strong py-2 text-sm font-bold text-primary hover:border-primary"
+      >
+        {open ? t.hideDetails : t.showDetails}
+        <ChevronDown className={`size-4 transition-transform ${open ? "rotate-180" : ""}`} aria-hidden />
+      </button>
+
+      {open && (
+        <div id={detailsId} className="mt-4 space-y-4">
+          <div>
+            <p className="label">{t.dPhotos}</p>
+            <div className={`mt-1.5 grid gap-2 ${photos.length > 1 ? "grid-cols-2" : "grid-cols-1"}`}>
+              {photos.map((photo, i) => (
+                <div key={photo.caption}>
+                  <PhotoButton
+                    src={photo.src}
+                    alt={photo.alt}
+                    openLabel={t.enlarge}
+                    onOpen={() => setViewer(i)}
+                    className="aspect-[4/3] w-full rounded-lg bg-rule object-cover"
+                  />
+                  {photos.length > 1 && <p className="mt-1 text-xs font-bold text-ink-muted">{photo.caption}</p>}
+                </div>
+              ))}
             </div>
-          ))}
-          {r.resolved_note && <figcaption className="col-span-2 text-sm">{r.resolved_note}</figcaption>}
-        </figure>
+          </div>
+
+          {r.resolved_note && (
+            <div className="rounded-lg bg-ok-tint px-3 py-2.5 text-sm">
+              <p className="font-bold text-ok">{t.dOfficeNote}</p>
+              <p className="mt-0.5">{r.resolved_note}</p>
+            </div>
+          )}
+
+          <div>
+            <p className="label">{t.dText}</p>
+            <p className="mt-1.5 whitespace-pre-line rounded-lg bg-surface px-3 py-2.5 text-[15px] leading-relaxed" lang="pl">
+              {r.formal_report}
+            </p>
+            {t.letterPolish && <p className="mt-1 text-xs text-ink-muted">{t.letterPolish}</p>}
+          </div>
+
+          <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
+            <dt className="text-ink-muted">{t.category}</dt>
+            <dd className="flex items-center gap-1.5">
+              <Icon className="size-3.5 shrink-0" aria-hidden /> {t.categories[r.category]}
+            </dd>
+            <dt className="text-ink-muted">{t.dPlace}</dt>
+            <dd>
+              {r.address && (
+                <span className="block">
+                  {t.approx} {r.address}
+                </span>
+              )}
+              <span className="block font-mono text-xs text-ink-muted">
+                {r.gps_lat.toFixed(5)}, {r.gps_lng.toFixed(5)}
+              </span>
+              <a
+                href={`https://www.openstreetmap.org/?mlat=${r.gps_lat}&mlon=${r.gps_lng}#map=18/${r.gps_lat}/${r.gps_lng}`}
+                target="_blank"
+                rel="noopener"
+                className="link mt-0.5 inline-flex items-center gap-1 text-sm"
+              >
+                <MapPin className="size-3.5" aria-hidden /> {t.dOpenMap}
+              </a>
+            </dd>
+            <dt className="text-ink-muted">{t.dReportedAt}</dt>
+            <dd>{fmtFull(r.created_at)}</dd>
+            <dt className="text-ink-muted">{t.dReporters}</dt>
+            <dd>{r.severity_score}</dd>
+            <dt className="text-ink-muted">{t.dLetter}</dt>
+            <dd>
+              {r.dispatch_unit && r.dispatched_at ? (
+                <>
+                  <span className="flex items-center gap-1.5">
+                    <Send className="size-3.5 shrink-0 text-primary" aria-hidden /> {r.dispatch_unit}
+                  </span>
+                  <span className="block text-ink-muted">
+                    {fmtFull(r.dispatched_at)}
+                    {r.dispatch_receipt && <> · <span className="font-mono text-xs">{r.dispatch_receipt}</span></>}
+                  </span>
+                </>
+              ) : (
+                <span className="text-ink-muted">{t.dLetterNotSent}</span>
+              )}
+            </dd>
+          </dl>
+        </div>
       )}
       {viewer !== null && <Lightbox images={photos} index={viewer} labels={t.viewer} onClose={() => setViewer(null)} />}
     </li>

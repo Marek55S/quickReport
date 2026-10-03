@@ -109,6 +109,15 @@ type Dict = {
   authEyebrow: string;
   authHeading: string;
   authBody: string;
+  authLoginTitle: string;
+  authLoginBody: string;
+  authLoginButton: string;
+  authConnecting: string;
+  authNotYou: string;
+  authDevice: string;
+  authCamera: string;
+  authFictional: string;
+  authUnavailable: string;
   fullName: string;
   sending: string;
   confirm: string;
@@ -140,6 +149,17 @@ type Dict = {
   reportsCount: (n: number) => string;
   before: string;
   after: string;
+  showDetails: string;
+  hideDetails: string;
+  dText: string;
+  dPlace: string;
+  dOpenMap: string;
+  dReportedAt: string;
+  dReporters: string;
+  dLetter: string;
+  dLetterNotSent: string;
+  dOfficeNote: string;
+  dPhotos: string;
   language: string;
   enlarge: string;
   viewer: { close: string; previous: string; next: string; of: (i: number, n: number) => string };
@@ -207,6 +227,15 @@ const pl: Dict = {
   authEyebrow: "Logowanie przez mObywatel · symulacja w prototypie",
   authHeading: "Potwierdź, że to Ty",
   authBody: "Urząd przyjmie zgłoszenie jako oficjalne pismo podpisane Twoimi danymi.",
+  authLoginTitle: "Zaloguj się, aby wysłać zgłoszenie",
+  authLoginBody: "Pismo do urzędu musi być podpisane. Zalogujesz się przez aplikację mObywatel – bez zakładania konta.",
+  authLoginButton: "Zaloguj przez mObywatel",
+  authConnecting: "Łączenie z mObywatel…",
+  authNotYou: "Nie Ty? Zaloguj inną osobę",
+  authDevice: "Urządzenie",
+  authCamera: "Aparat (ze zdjęcia)",
+  authFictional: "Prototyp: logowanie symulowane, dane osobowe są fikcyjne i stałe dla tej przeglądarki.",
+  authUnavailable: "Logowanie jest niedostępne – zgłoszenie zostanie wysłane bez potwierdzenia tożsamości.",
   fullName: "Imię i nazwisko",
   sending: "Wysyłanie zgłoszenia…",
   confirm: "Potwierdź w mObywatel i wyślij",
@@ -233,14 +262,25 @@ const pl: Dict = {
   stages: ["Przyjęte", "Wysłane do urzędu", "W realizacji", "Rozwiązane"],
   stageOf: (n, label) => `Etap ${n} z 4: ${label}`,
   sentTo: (unit) => `Pismo wysłane do: ${unit}`,
-  deviceOnly: "Widzisz zgłoszenia wysłane z tego urządzenia. Zaloguj się, aby zobaczyć zgłoszenia ze wszystkich urządzeń.",
+  deviceOnly: "Widzisz zgłoszenia wysłane z tego urządzenia. Zaloguj się przez mObywatel, aby przypisać je do swojego konta.",
   signIn: "Zaloguj przez mObywatel (symulacja)",
-  signedInAs: (name) => `Zalogowano jako ${name} (symulacja mObywatel) – widzisz zgłoszenia ze wszystkich urządzeń.`,
+  signedInAs: (name) => `Zalogowano jako ${name} (symulacja mObywatel) – widzisz zgłoszenia przypisane do Twojego konta.`,
   signOut: "Wyloguj",
   signInFailed: "Logowanie jest teraz niedostępne.",
   reportsCount: (n) => `Zgłoszeń tego problemu: ${n}`,
   before: "Przed",
   after: "Po naprawie",
+  showDetails: "Pokaż szczegóły",
+  hideDetails: "Ukryj szczegóły",
+  dText: "Treść zgłoszenia",
+  dPlace: "Miejsce",
+  dOpenMap: "Zobacz na mapie",
+  dReportedAt: "Zgłoszono",
+  dReporters: "Zgłaszających",
+  dLetter: "Pismo do urzędu",
+  dLetterNotSent: "Jeszcze nie wysłane – urząd sprawdza zgłoszenie.",
+  dOfficeNote: "Informacja od urzędu",
+  dPhotos: "Zdjęcia",
   language: "Język",
   enlarge: "Powiększ zdjęcie",
   viewer: { close: "Zamknij", previous: "Poprzednie zdjęcie", next: "Następne zdjęcie", of: (i, n) => `${i} z ${n}` },
@@ -319,6 +359,15 @@ const en: Dict = {
   authEyebrow: "Sign in with mObywatel · simulated in this prototype",
   authHeading: "Confirm it's you",
   authBody: "The city office accepts the report as an official letter signed with your details.",
+  authLoginTitle: "Sign in to send your report",
+  authLoginBody: "The letter to the city office must be signed. You sign in with the mObywatel app – no account needed.",
+  authLoginButton: "Sign in with mObywatel",
+  authConnecting: "Connecting to mObywatel…",
+  authNotYou: "Not you? Sign in as someone else",
+  authDevice: "Device",
+  authCamera: "Camera (from photo)",
+  authFictional: "Prototype: sign-in is simulated; personal data is fictional and stays the same in this browser.",
+  authUnavailable: "Sign-in is unavailable – the report will be sent without identity confirmation.",
   fullName: "Full name",
   sending: "Sending the report…",
   confirm: "Confirm with mObywatel and send",
@@ -342,14 +391,25 @@ const en: Dict = {
   stages: ["Received", "Sent to the city", "In progress", "Resolved"],
   stageOf: (n, label) => `Stage ${n} of 4: ${label}`,
   sentTo: (unit) => `Letter sent to: ${unit}`,
-  deviceOnly: "You're seeing reports sent from this device. Sign in to see reports from all your devices.",
+  deviceOnly: "You're seeing reports sent from this device. Sign in with mObywatel to link them to your account.",
   signIn: "Sign in with mObywatel (simulated)",
-  signedInAs: (name) => `Signed in as ${name} (simulated mObywatel) – showing reports from all your devices.`,
+  signedInAs: (name) => `Signed in as ${name} (simulated mObywatel) – showing the reports linked to your account.`,
   signOut: "Sign out",
   signInFailed: "Sign-in is unavailable right now.",
   reportsCount: (n) => `Reports of this problem: ${n}`,
   before: "Before",
   after: "After repair",
+  showDetails: "Show details",
+  hideDetails: "Hide details",
+  dText: "Report text",
+  dPlace: "Place",
+  dOpenMap: "Open map",
+  dReportedAt: "Reported",
+  dReporters: "People reporting",
+  dLetter: "Letter to the city office",
+  dLetterNotSent: "Not sent yet – the city office is reviewing the report.",
+  dOfficeNote: "Note from the city office",
+  dPhotos: "Photos",
   language: "Language",
   enlarge: "Enlarge photo",
   viewer: { close: "Close", previous: "Previous photo", next: "Next photo", of: (i, n) => `${i} of ${n}` },
@@ -428,6 +488,15 @@ const uk: Dict = {
   authEyebrow: "Вхід через mObywatel · симуляція в прототипі",
   authHeading: "Підтвердьте, що це ви",
   authBody: "Міська рада прийме звернення як офіційний лист, підписаний вашими даними.",
+  authLoginTitle: "Увійдіть, щоб надіслати звернення",
+  authLoginBody: "Лист до міської ради має бути підписаний. Ви входите через застосунок mObywatel – без реєстрації.",
+  authLoginButton: "Увійти через mObywatel",
+  authConnecting: "З'єднання з mObywatel…",
+  authNotYou: "Не ви? Увійти як інша особа",
+  authDevice: "Пристрій",
+  authCamera: "Камера (з фото)",
+  authFictional: "Прототип: вхід симульовано, особисті дані вигадані й незмінні в цьому браузері.",
+  authUnavailable: "Вхід недоступний – звернення буде надіслано без підтвердження особи.",
   fullName: "Ім'я та прізвище",
   sending: "Надсилання звернення…",
   confirm: "Підтвердити в mObywatel і надіслати",
@@ -454,14 +523,25 @@ const uk: Dict = {
   stages: ["Прийнято", "Надіслано до міської ради", "У роботі", "Вирішено"],
   stageOf: (n, label) => `Етап ${n} з 4: ${label}`,
   sentTo: (unit) => `Лист надіслано: ${unit}`,
-  deviceOnly: "Ви бачите звернення, надіслані з цього пристрою. Увійдіть, щоб бачити звернення з усіх пристроїв.",
+  deviceOnly: "Ви бачите звернення, надіслані з цього пристрою. Увійдіть через mObywatel, щоб пов'язати їх з обліковим записом.",
   signIn: "Увійти через mObywatel (симуляція)",
-  signedInAs: (name) => `Ви увійшли як ${name} (симуляція mObywatel) – показано звернення з усіх пристроїв.`,
+  signedInAs: (name) => `Ви увійшли як ${name} (симуляція mObywatel) – показано звернення, пов'язані з вашим обліковим записом.`,
   signOut: "Вийти",
   signInFailed: "Вхід зараз недоступний.",
   reportsCount: (n) => `Звернень щодо цієї проблеми: ${n}`,
   before: "До",
   after: "Після ремонту",
+  showDetails: "Показати деталі",
+  hideDetails: "Сховати деталі",
+  dText: "Текст звернення",
+  dPlace: "Місце",
+  dOpenMap: "Відкрити мапу",
+  dReportedAt: "Повідомлено",
+  dReporters: "Кількість заявників",
+  dLetter: "Лист до міської ради",
+  dLetterNotSent: "Ще не надіслано – міська рада перевіряє звернення.",
+  dOfficeNote: "Інформація від міської ради",
+  dPhotos: "Фото",
   language: "Мова",
   enlarge: "Збільшити фото",
   viewer: { close: "Закрити", previous: "Попереднє фото", next: "Наступне фото", of: (i, n) => `${i} з ${n}` },

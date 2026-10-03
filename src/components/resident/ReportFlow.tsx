@@ -15,6 +15,7 @@ import {
   Map as MapIcon,
   MapPin,
   ScanSearch,
+  ShieldCheck,
   Sparkles,
   TriangleAlert,
   Upload,
@@ -29,9 +30,17 @@ import {
   type Category,
   type SubmitResult,
 } from "@/lib/types";
-import { downscaleImage, getPosition, readPhotoPosition, withTimeout, type Position } from "./media";
+import {
+  describeBrowser,
+  downscaleImage,
+  getPosition,
+  readPhotoDevice,
+  readPhotoPosition,
+  withTimeout,
+  type Position,
+} from "./media";
 import { LANG_NAMES, LANGS, setLang, useLang, useT } from "./i18n";
-import { getReporterId, signInCitizen } from "./reporter";
+import { currentCitizen, getReporterId, signInCitizen, signOutCitizen, type CitizenProfile } from "./reporter";
 
 const PickerMap = dynamic(() => import("./PickerMap"), {
   ssr: false,
@@ -88,6 +97,7 @@ export default function ReportFlow() {
   const [analysis, setAnalysis] = useState<Analysis | null>(null);
   const [aiSource, setAiSource] = useState<"ai" | "mock">("ai");
   const [notes, setNotes] = useState("");
+  const [camera, setCamera] = useState<string | null>(null);
   const [result, setResult] = useState<SubmitResult | null>(null);
   const [error, setError] = useState("");
 
@@ -111,6 +121,7 @@ export default function ReportFlow() {
     try {
       // Location and EXIF run in parallel with the analysis; nothing waits for the slowest step to show the photo.
       const located = Promise.all([getPosition(), withTimeout(readPhotoPosition(file), 5000, null)]);
+      withTimeout(readPhotoDevice(file), 5000, null).then(setCamera);
       const blob = await downscaleImage(file);
       setPhoto({ blob, url: URL.createObjectURL(blob) });
 
@@ -142,8 +153,6 @@ export default function ReportFlow() {
     if (!photo || !position || !analysis) return;
     setStep("submitting");
     try {
-      // Simulated mObywatel confirmation: starts a citizen session and attaches earlier reports from this device.
-      await signInCitizen();
       const form = new FormData();
       form.append("image", photo.blob, "photo.jpg");
       form.append("lat", String(position.lat));
@@ -156,6 +165,8 @@ export default function ReportFlow() {
       form.append("danger_reason", analysis.danger_reason);
       const reporter = getReporterId();
       if (reporter) form.append("reporter_id", reporter);
+      form.append("client_device", describeBrowser());
+      if (camera) form.append("camera", camera);
       const res = await fetch("/api/reports", { method: "POST", body: form });
       if (!res.ok) throw new Error(`submit ${res.status}`);
       setResult(await res.json());
@@ -238,7 +249,7 @@ export default function ReportFlow() {
       )}
 
       {(step === "auth" || step === "submitting") && (
-        <AuthMock busy={step === "submitting"} onBack={() => setStep("review")} onConfirm={submit} />
+        <AuthMock busy={step === "submitting"} camera={camera} onBack={() => setStep("review")} onConfirm={submit} />
       )}
 
       {step === "done" && result && <Done result={result} title={analysis?.title} onAgain={reset} />}
@@ -536,9 +547,10 @@ function CategoryPicker(props: { value: Category; onChange: (c: Category) => voi
                 key={c}
                 type="button"
                 aria-pressed={active}
+                // Keep the list open after choosing, so the resident sees what changed; "Zwiń" closes it.
                 onClick={() => {
                   props.onChange(c);
-                  setOpen(false);
+                  setOpen(true);
                 }}
                 className={`flex items-center gap-2 rounded-lg border px-2.5 py-2 text-left text-[15px] leading-tight transition-colors ${
                   active ? "border-primary bg-primary-tint font-bold text-primary-dark" : "border-rule bg-paper hover:border-primary"
@@ -737,31 +749,100 @@ function NotesSection(props: {
   );
 }
 
-function AuthMock({ busy, onBack, onConfirm }: { busy: boolean; onBack: () => void; onConfirm: () => void }) {
+/** Simulated mObywatel: sign in (a fictional person stable for this browser), review the data, confirm and send. */
+function AuthMock(props: { busy: boolean; camera: string | null; onBack: () => void; onConfirm: () => void }) {
   const t = useT();
+  const [phase, setPhase] = useState<"checking" | "login" | "connecting" | "confirm" | "unavailable">("checking");
+  const [profile, setProfile] = useState<CitizenProfile | null>(null);
+  const [device] = useState(() => describeBrowser());
+
+  useEffect(() => {
+    currentCitizen().then(({ profile, available }) => {
+      setProfile(profile);
+      setPhase(profile ? "confirm" : available ? "login" : "unavailable");
+    });
+  }, []);
+
+  async function signIn() {
+    setPhase("connecting");
+    // A short pause stands in for the hand-off to the mObywatel app.
+    const [person] = await Promise.all([signInCitizen(), new Promise((r) => setTimeout(r, 900))]);
+    setProfile(person);
+    setPhase(person ? "confirm" : "unavailable");
+  }
+
+  async function switchPerson() {
+    await signOutCitizen();
+    setProfile(null);
+    setPhase("login");
+  }
+
   return (
     <div className="flex flex-1 flex-col">
-      <TopBar title={t.authTitle} step={3} onBack={busy ? undefined : onBack} />
+      <TopBar title={t.authTitle} step={3} onBack={props.busy ? undefined : props.onBack} />
       <div className="flex flex-1 flex-col px-5 pt-6 lg:mx-auto lg:w-full lg:max-w-lg lg:pt-16">
         <p className="label">{t.authEyebrow}</p>
-        <h2 className="display mt-2 text-3xl leading-none">{t.authHeading}</h2>
-        <p className="mt-3 leading-snug text-ink-muted">{t.authBody}</p>
-        <dl className="mt-6 border-y border-rule">
-          <div className="flex justify-between border-b border-rule py-3">
-            <dt className="text-ink-muted">{t.fullName}</dt>
-            <dd className="font-medium">Jan Kowalski</dd>
+
+        {(phase === "checking" || phase === "connecting") && (
+          <div className="mt-10 flex flex-col items-center gap-3 text-ink-muted" role="status">
+            <Loader2 className="size-8 animate-spin text-primary" aria-hidden />
+            {phase === "connecting" && <p>{t.authConnecting}</p>}
           </div>
-          <div className="flex justify-between py-3">
-            <dt className="text-ink-muted">PESEL</dt>
-            <dd className="font-mono">•••••••1234</dd>
+        )}
+
+        {phase === "login" && (
+          <>
+            <h2 className="display mt-2 text-3xl leading-none">{t.authLoginTitle}</h2>
+            <p className="mt-3 leading-snug text-ink-muted">{t.authLoginBody}</p>
+            <button onClick={signIn} className="btn-ink mt-8">
+              <ShieldCheck className="size-5" aria-hidden /> {t.authLoginButton}
+            </button>
+          </>
+        )}
+
+        {phase === "unavailable" && <p className="mt-4 rounded-lg bg-warn-bg px-3 py-2 text-sm text-warn-ink">{t.authUnavailable}</p>}
+
+        {phase === "confirm" && profile && (
+          <>
+            <h2 className="display mt-2 text-3xl leading-none">{t.authHeading}</h2>
+            <p className="mt-3 leading-snug text-ink-muted">{t.authBody}</p>
+            <dl className="mt-6 border-y border-rule">
+              <div className="flex justify-between gap-4 border-b border-rule py-3">
+                <dt className="text-ink-muted">{t.fullName}</dt>
+                <dd className="font-bold">{profile.name}</dd>
+              </div>
+              <div className="flex justify-between gap-4 border-b border-rule py-3">
+                <dt className="text-ink-muted">PESEL</dt>
+                <dd className="font-mono">{profile.pesel}</dd>
+              </div>
+              <div className="flex justify-between gap-4 py-3">
+                <dt className="text-ink-muted">{t.authDevice}</dt>
+                <dd className="text-right">{device}</dd>
+              </div>
+              {props.camera && (
+                <div className="flex justify-between gap-4 border-t border-rule py-3">
+                  <dt className="text-ink-muted">{t.authCamera}</dt>
+                  <dd className="text-right">{props.camera}</dd>
+                </div>
+              )}
+            </dl>
+            <p className="mt-3 text-xs text-ink-muted">{t.authFictional}</p>
+            {!props.busy && (
+              <button onClick={switchPerson} className="link mt-2 self-start text-sm">
+                {t.authNotYou}
+              </button>
+            )}
+          </>
+        )}
+
+        {(phase === "confirm" || phase === "unavailable") && (
+          <div className="mt-auto pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-6 lg:mt-10">
+            <button onClick={props.onConfirm} disabled={props.busy} className="btn-ink">
+              {props.busy ? <Loader2 className="size-5 animate-spin" aria-hidden /> : <Check className="size-5" aria-hidden />}
+              {props.busy ? t.sending : t.confirm}
+            </button>
           </div>
-        </dl>
-        <div className="mt-auto pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-6 lg:mt-10">
-          <button onClick={onConfirm} disabled={busy} className="btn-ink">
-            {busy ? <Loader2 className="size-5 animate-spin" aria-hidden /> : <Check className="size-5" aria-hidden />}
-            {busy ? t.sending : t.confirm}
-          </button>
-        </div>
+        )}
       </div>
     </div>
   );

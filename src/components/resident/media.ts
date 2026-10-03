@@ -74,7 +74,7 @@ export async function readPhotoPosition(file: File): Promise<Position | null> {
  * Device location, never hanging: iOS does not call back while its permission prompt is pending (or hidden behind
  * the camera), and the API timeout only starts after permission is granted, so a hard limit is added here.
  */
-export function getPosition(timeoutMs = 10_000): Promise<Position> {
+export function getPosition(timeoutMs = 6_500): Promise<Position> {
   return withTimeout(requestPosition(timeoutMs), timeoutMs + 1000, DEMO_POSITION);
 }
 
@@ -93,4 +93,48 @@ function requestPosition(timeoutMs: number): Promise<Position> {
       { enableHighAccuracy: true, timeout: timeoutMs, maximumAge: 30_000 },
     );
   });
+}
+
+/** Readable browser/device label from the user agent, e.g. "iPhone · Safari" (shown on the mObywatel step). */
+export function describeBrowser(): string {
+  const ua = navigator.userAgent;
+  const device = /iPhone/.test(ua)
+    ? "iPhone"
+    : /iPad/.test(ua)
+      ? "iPad"
+      : /Android/.test(ua)
+        ? "Android"
+        : /Windows/.test(ua)
+          ? "Windows"
+          : /Mac OS X/.test(ua)
+            ? "macOS"
+            : /Linux/.test(ua)
+              ? "Linux"
+              : "urządzenie";
+  const browser = /EdgA?\//.test(ua)
+    ? "Edge"
+    : /SamsungBrowser/.test(ua)
+      ? "Samsung Internet"
+      : /CriOS|Chrome\//.test(ua)
+        ? "Chrome"
+        : /FxiOS|Firefox\//.test(ua)
+          ? "Firefox"
+          : /Safari\//.test(ua)
+            ? "Safari"
+            : "przeglądarka";
+  return `${device} · ${browser}`;
+}
+
+/** Camera make and model from the photo's EXIF, e.g. "Apple iPhone 13"; null when stripped. */
+export async function readPhotoDevice(file: File): Promise<string | null> {
+  try {
+    const { parse } = await import("exifr");
+    const tags = await parse(file, ["Make", "Model"]);
+    const make = typeof tags?.Make === "string" ? tags.Make.trim() : "";
+    const model = typeof tags?.Model === "string" ? tags.Model.trim() : "";
+    if (!make && !model) return null;
+    return model.toLowerCase().startsWith(make.toLowerCase()) ? model : `${make} ${model}`.trim();
+  } catch {
+    return null;
+  }
 }

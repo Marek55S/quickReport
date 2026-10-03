@@ -89,6 +89,8 @@ export type Dispatch = {
 export type Ticket = {
   id: string;
   dispatch?: Dispatch;
+  camera?: string;
+  client_device?: string;
   geohash: string;
   address?: string;
   danger_level: number;
@@ -113,6 +115,10 @@ export type Ticket = {
 /** A resident's own submission with the current state of the ticket it belongs to. */
 export type MyReport = {
   id: string;
+  formal_report: string;
+  gps_lat: number;
+  gps_lng: number;
+  dispatch_receipt?: string;
   dispatched_at?: string;
   dispatch_unit?: string;
   ticket_id: string;
