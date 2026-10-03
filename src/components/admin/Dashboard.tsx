@@ -1,8 +1,9 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
-import { CheckCircle2, ClipboardList, Flame, Hammer, Loader2, RefreshCw, Users } from "lucide-react";
+import { CheckCircle2, ClipboardList, Flame, Hammer, Loader2, LogOut, RefreshCw, Users } from "lucide-react";
 import { CATEGORY_STYLE } from "@/components/categories";
 import { CATEGORY_LABELS, LOCATION_SOURCE_LABELS, type Ticket, type TicketStatus } from "@/lib/types";
 import { severityColor, severityLabel } from "./severity";
@@ -21,18 +22,27 @@ const TABS: { status: TicketStatus; label: string }[] = [
 ];
 
 export default function Dashboard() {
+  const router = useRouter();
   const [status, setStatus] = useState<TicketStatus>("OPEN");
   const [tickets, setTickets] = useState<Ticket[] | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [updatedAt, setUpdatedAt] = useState<Date | null>(null);
 
+  const toLogin = useCallback(() => router.replace("/admin/login?next=/admin"), [router]);
+
+  async function logout() {
+    await fetch("/api/admin/logout", { method: "POST" });
+    toLogin();
+  }
+
   const load = useCallback(async () => {
     const res = await fetch(`/api/tickets?status=${status}`, { cache: "no-store" });
+    if (res.status === 401) return toLogin();
     if (res.ok) {
       setTickets(await res.json());
       setUpdatedAt(new Date());
     }
-  }, [status]);
+  }, [status, toLogin]);
 
   useEffect(() => {
     // Poll so reports sent from a phone appear live during the demo.
@@ -56,6 +66,7 @@ export default function Dashboard() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ status: next }),
     });
+    if (res.status === 401) return toLogin();
     if (res.ok) {
       setSelectedId(null);
       await load();
@@ -74,10 +85,18 @@ export default function Dashboard() {
             <h1 className="text-xl font-semibold">Panel zgłoszeń miejskich</h1>
             <p className="text-sm text-blue-200">QuickReport · priorytety wyliczane z liczby zgłoszeń mieszkańców</p>
           </div>
-          <p className="flex items-center gap-1.5 text-xs text-blue-200">
-            <RefreshCw className="size-3.5" />
-            {updatedAt ? `Odświeżono ${updatedAt.toLocaleTimeString("pl-PL")}` : "Ładowanie…"}
-          </p>
+          <div className="flex items-center gap-4">
+            <p className="flex items-center gap-1.5 text-xs text-blue-200">
+              <RefreshCw className="size-3.5" />
+              {updatedAt ? `Odświeżono ${updatedAt.toLocaleTimeString("pl-PL")}` : "Ładowanie…"}
+            </p>
+            <button
+              onClick={logout}
+              className="flex items-center gap-1.5 rounded-lg bg-white/10 px-3 py-1.5 text-sm hover:bg-white/20"
+            >
+              <LogOut className="size-4" /> Wyloguj
+            </button>
+          </div>
         </div>
         <div className="mt-4 grid grid-cols-3 gap-3">
           <Stat icon={ClipboardList} label="Zgłoszenia" value={list.length} />

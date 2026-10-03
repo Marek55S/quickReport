@@ -76,10 +76,28 @@ export type Ticket = {
   status: TicketStatus;
   severity_score: number;
   location_source?: LocationSource;
+  in_progress_at?: string;
+  resolved_at?: string;
   image_url: string;
   created_at: string;
   updated_at: string;
 };
+
+/** A resident's own submission with the current state of the ticket it belongs to. */
+export type MyReport = {
+  id: string;
+  ticket_id: string;
+  title: string;
+  category: Category;
+  image_url: string;
+  created_at: string;
+  status: TicketStatus;
+  severity_score: number;
+  in_progress_at?: string;
+  resolved_at?: string;
+};
+
+export const ReporterIdSchema = z.uuid();
 
 export type SubmitResult = {
   ticketId: string;

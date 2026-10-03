@@ -66,6 +66,8 @@ async function cleanup() {
       await db.collection("open_clusters").doc(`${ticket.get("geohash")}_${ticket.get("category")}`).delete();
     }
     await db.recursiveDelete(ref);
+    const submissions = await db.collection("reports").where("ticket_id", "==", id).get();
+    await Promise.all(submissions.docs.map((d) => d.ref.delete()));
   }
 }
 

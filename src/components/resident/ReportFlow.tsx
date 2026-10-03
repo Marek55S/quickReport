@@ -1,11 +1,13 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import Link from "next/link";
 import { useRef, useState } from "react";
 import {
   ArrowLeft,
   Camera,
   CheckCircle2,
+  ClipboardList,
   Image as ImageIcon,
   Loader2,
   LocateFixed,
@@ -28,6 +30,7 @@ import {
   type SubmitResult,
 } from "@/lib/types";
 import { downscaleImage, getPosition, readPhotoPosition, type Position } from "./media";
+import { getReporterId } from "./reporter";
 
 const PickerMap = dynamic(() => import("./PickerMap"), {
   ssr: false,
@@ -114,6 +117,8 @@ export default function ReportFlow() {
       form.append("category", analysis.category);
       form.append("title", analysis.title);
       form.append("formal_report", analysis.formal_report);
+      const reporter = getReporterId();
+      if (reporter) form.append("reporter_id", reporter);
       const res = await fetch("/api/reports", { method: "POST", body: form });
       if (!res.ok) throw new Error((await res.json()).error ?? "Nie udało się wysłać zgłoszenia");
       setResult(await res.json());
@@ -216,9 +221,17 @@ function Home({ onStart }: { onStart: (source: "camera" | "gallery") => void }) 
   return (
     <div className="flex flex-1 flex-col">
       <section className="rounded-b-[2rem] bg-gradient-to-br from-brand to-brand-dark px-6 pb-10 pt-[max(3rem,env(safe-area-inset-top))] text-white">
-        <p className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-blue-200">
-          <MapPin className="size-4" /> QuickReport
-        </p>
+        <div className="flex items-center justify-between">
+          <p className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-blue-200">
+            <MapPin className="size-4" /> QuickReport
+          </p>
+          <Link
+            href="/moje-zgloszenia"
+            className="flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1.5 text-sm font-medium text-white"
+          >
+            <ClipboardList className="size-4" /> Moje zgłoszenia
+          </Link>
+        </div>
         <h1 className="mt-4 text-3xl font-bold leading-tight">Widzisz problem w mieście? Zgłoś go jednym zdjęciem.</h1>
         <p className="mt-3 text-blue-100">Bez formularzy i szukania właściwego wydziału.</p>
       </section>
@@ -537,7 +550,13 @@ function Done({ result, title, onAgain }: { result: SubmitResult; title?: string
         Numer zgłoszenia: <span className="font-mono">{result.ticketId}</span>
       </p>
 
-      <button onClick={onAgain} className="btn-primary mt-8">
+      <Link
+        href="/moje-zgloszenia"
+        className="mt-8 flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white py-3.5 font-medium text-slate-700"
+      >
+        <ClipboardList className="size-5" /> Śledź status w „Moich zgłoszeniach”
+      </Link>
+      <button onClick={onAgain} className="btn-primary mt-3">
         Zgłoś kolejny problem
       </button>
     </Centered>

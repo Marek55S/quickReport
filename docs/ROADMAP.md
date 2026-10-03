@@ -39,6 +39,7 @@ Implemented on branch `feature/report-input-options` ([specification](../.ai/spe
 - AI-assessed severity (danger level) combined with report count for priority.
 - Firestore real-time listeners instead of polling on the dashboard.
 - Service worker with offline report queueing.
-- Real mObywatel / login.gov.pl authentication and admin login for the dashboard.
+- Real mObywatel / login.gov.pl authentication; per-user dashboard accounts with roles (a shared-password login is implemented).
+- "Moje zgłoszenia" is implemented with an anonymous per-device id; tie it to the verified identity once mObywatel login is real.
 - Routing tickets to the responsible department or road manager, and integration with city reporting systems (e.g. 19115).
 - Status notifications for residents who reported a problem.

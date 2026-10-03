@@ -45,10 +45,12 @@ Deploy (repeat after each change):
 gcloud run deploy quickreport --source . --region=europe-central2 \
   --service-account=$SA --allow-unauthenticated \
   --memory=1Gi --max-instances=2 \
-  --set-env-vars=GOOGLE_CLOUD_PROJECT=$PROJECT,GOOGLE_CLOUD_LOCATION=europe-west1,GCS_BUCKET=$PROJECT-report-images,GEMINI_MODEL=gemini-2.5-flash,AI_MOCK=0
+  --set-env-vars=GOOGLE_CLOUD_PROJECT=$PROJECT,GOOGLE_CLOUD_LOCATION=europe-west1,GCS_BUCKET=$PROJECT-report-images,GEMINI_MODEL=gemini-2.5-flash,AI_MOCK=0,ADMIN_PASSWORD=<dashboard password>,ADMIN_SESSION_SECRET=<random string, e.g. openssl rand -hex 32>
 ```
 
-The command prints the HTTPS service URL. `/admin` has no authentication in this prototype.
+The command prints the HTTPS service URL.
+The dashboard at `/admin` requires `ADMIN_PASSWORD`; without it the dashboard stays locked.
+Environment variables are visible to anyone with view access to the Cloud Run service; use Secret Manager (`--update-secrets`) for a real deployment.
 
 ## Working with an agent
 

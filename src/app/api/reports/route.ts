@@ -1,11 +1,12 @@
 import { uploadImage } from "@/lib/storage";
 import { submitReport } from "@/lib/tickets";
-import { CoordinatesSchema, LOCATION_SOURCE_LABELS, ReportSchema } from "@/lib/types";
+import { CoordinatesSchema, LOCATION_SOURCE_LABELS, ReportSchema, ReporterIdSchema } from "@/lib/types";
 
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 const IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
 
-// POST multipart/form-data: image (file), lat, lng, location_source, category, title, formal_report
+// POST multipart/form-data: image (file), lat, lng, location_source, category, title, formal_report,
+// reporter_id (optional anonymous device id for "Moje zgłoszenia")
 export async function POST(request: Request) {
   const form = await request.formData().catch(() => null);
   const image = form?.get("image");
@@ -20,6 +21,7 @@ export async function POST(request: Request) {
     formal_report: form?.get("formal_report"),
     location_source: form?.get("location_source"),
   });
+  const reporter = ReporterIdSchema.safeParse(form?.get("reporter_id"));
   if (!coords.success || !report.success) {
     return Response.json({ error: "Niepoprawne dane zgłoszenia" }, { status: 400 });
   }
@@ -37,6 +39,7 @@ export async function POST(request: Request) {
     lng,
     locationSource: report.data.location_source,
     imagePath,
+    reporterId: reporter.success ? reporter.data : undefined,
   });
   return Response.json(result, { status: result.merged ? 200 : 201 });
 }
