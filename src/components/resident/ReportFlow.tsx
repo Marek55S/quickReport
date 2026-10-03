@@ -8,6 +8,7 @@ import {
   ArrowRight,
   Camera,
   Check,
+  ClipboardList,
   Image as ImageIcon,
   Loader2,
   LocateFixed,
@@ -21,7 +22,6 @@ import {
 import { CATEGORY_ICONS } from "@/components/categories";
 import { ticketNumber, Wordmark } from "@/components/ui";
 import {
-  CATEGORY_LABELS,
   DEFAULT_CATEGORY,
   NOTES_MAX_LENGTH,
   REPORTABLE_CATEGORIES,
@@ -30,11 +30,16 @@ import {
   type SubmitResult,
 } from "@/lib/types";
 import { downscaleImage, getPosition, readPhotoPosition, type Position } from "./media";
+import { LANG_NAMES, LANGS, setLang, useLang, useT } from "./i18n";
 import { getReporterId } from "./reporter";
 
 const PickerMap = dynamic(() => import("./PickerMap"), {
   ssr: false,
-  loading: () => <div className="flex size-full items-center justify-center text-sm text-ink-muted">Ładowanie mapy…</div>,
+  loading: () => (
+    <div className="flex size-full items-center justify-center text-ink-muted">
+      <Loader2 className="size-5 animate-spin" aria-hidden />
+    </div>
+  ),
 });
 
 const DESKTOP_QUERY = "(min-width: 1024px)";
@@ -61,11 +66,12 @@ async function requestAnalysis(blob: Blob, notes = ""): Promise<AnalyzeResponse>
   form.append("image", blob, "photo.jpg");
   if (notes.trim()) form.append("notes", notes.trim());
   const res = await fetch("/api/analyze", { method: "POST", body: form });
-  if (!res.ok) throw new Error((await res.json()).error ?? "Analiza nie powiodła się");
+  if (!res.ok) throw new Error("analyze");
   return res.json();
 }
 
 export default function ReportFlow() {
+  const t = useT();
   const cameraInput = useRef<HTMLInputElement>(null);
   const galleryInput = useRef<HTMLInputElement>(null);
   const positionPromise = useRef<Promise<Position> | null>(null);
@@ -114,7 +120,8 @@ export default function ReportFlow() {
       setAiSource(data.source);
       setStep("review");
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Coś poszło nie tak");
+      console.error(e);
+      setError(t.errAnalyze);
       setStep("error");
     }
   }
@@ -141,14 +148,17 @@ export default function ReportFlow() {
       form.append("category", analysis.category);
       form.append("title", analysis.title);
       form.append("formal_report", analysis.formal_report);
+      form.append("danger_level", String(analysis.danger_level));
+      form.append("danger_reason", analysis.danger_reason);
       const reporter = getReporterId();
       if (reporter) form.append("reporter_id", reporter);
       const res = await fetch("/api/reports", { method: "POST", body: form });
-      if (!res.ok) throw new Error((await res.json()).error ?? "Nie udało się wysłać zgłoszenia");
+      if (!res.ok) throw new Error(`submit ${res.status}`);
       setResult(await res.json());
       setStep("done");
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Coś poszło nie tak");
+      console.error(e);
+      setError(t.errSubmit);
       setStep("error");
     }
   }
@@ -187,15 +197,15 @@ export default function ReportFlow() {
 
       {step === "analyzing" && (
         <div className="flex flex-1 flex-col">
-          <TopBar title="Analiza zdjęcia" step={1} />
+          <TopBar title={t.analyzingBar} step={1} />
           <div className="flex flex-1 flex-col px-5 pb-10 lg:grid lg:grid-cols-2 lg:items-center lg:gap-12 lg:px-8">
             {photo && <PhotoPreview url={photo.url} />}
             <div>
-            <div className="mt-6 h-1.5 overflow-hidden rounded-full bg-primary-tint" role="progressbar" aria-label="Analiza zdjęcia">
+            <div className="mt-6 h-1.5 overflow-hidden rounded-full bg-primary-tint" role="progressbar" aria-label={t.analyzingBar}>
               <div className="progress-scan h-full w-2/5 rounded-full bg-primary" />
             </div>
-            <h2 className="display mt-6 text-3xl leading-none">Analizuję zdjęcie…</h2>
-            <p className="mt-2 text-ink-muted">AI rozpoznaje problem i przygotowuje pismo do urzędu. To zwykle kilka sekund.</p>
+            <h2 className="display mt-6 text-3xl leading-none">{t.analyzingTitle}</h2>
+            <p className="mt-2 text-ink-muted">{t.analyzingBody}</p>
             </div>
           </div>
         </div>
@@ -232,10 +242,10 @@ export default function ReportFlow() {
       {step === "error" && (
         <div className="flex flex-1 flex-col justify-center px-5 py-10 lg:mx-auto lg:w-full lg:max-w-lg">
           <TriangleAlert className="size-10 text-sev-high" aria-hidden />
-          <h2 className="display mt-4 text-3xl leading-none">Nie udało się</h2>
+          <h2 className="display mt-4 text-3xl leading-none">{t.errorTitle}</h2>
           <p className="mt-2 text-ink-muted">{error}</p>
           <button onClick={reset} className="btn-primary mt-8">
-            Spróbuj ponownie
+            {t.retry}
           </button>
         </div>
       )}
@@ -244,28 +254,34 @@ export default function ReportFlow() {
 }
 
 function Home({ onStart, onFile }: { onStart: (source: "camera" | "gallery") => void; onFile: (file: File) => void }) {
-  const steps = [
-    "Zrób zdjęcie usterki lub bariery.",
-    "AI rozpozna problem i napisze oficjalne pismo do urzędu.",
-    "Sprawdź, potwierdź przez mObywatel i gotowe.",
-  ];
+  const t = useT();
+  const steps = t.steps;
   return (
     <div className="flex flex-1 flex-col px-5 pt-[max(1.25rem,env(safe-area-inset-top))] lg:px-8 lg:pt-6">
       <header className="flex items-center justify-between">
         <Wordmark />
-        <Link href="/moje-zgloszenia" className="link flex items-center gap-1 text-[15px]">
-          Moje zgłoszenia <ArrowRight className="size-4" aria-hidden />
-        </Link>
+        <div className="flex items-center gap-2 sm:gap-4">
+          <LanguageSwitch />
+          <Link
+            href="/moje-zgloszenia"
+            aria-label={t.myReports}
+            className="link flex items-center gap-1 whitespace-nowrap rounded-lg p-1.5 text-[15px] sm:p-0"
+          >
+            <ClipboardList className="size-5 sm:hidden" aria-hidden />
+            <span className="hidden sm:inline">{t.myReports}</span>
+            <ArrowRight className="hidden size-4 sm:block" aria-hidden />
+          </Link>
+        </div>
       </header>
 
       <div className="flex flex-1 flex-col lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:items-center lg:gap-16 lg:pb-16">
         <div className="flex flex-1 flex-col lg:flex-none">
           <section className="mt-12 lg:mt-0">
             <h1 className="display text-[2.35rem] leading-[1.08] lg:text-[3.25rem]">
-              Zgłoś problem w mieście <span className="text-primary">jednym zdjęciem</span>
+              {t.heroA} <span className="text-primary">{t.heroB}</span>
             </h1>
             <p className="mt-4 text-lg leading-snug text-ink-muted lg:max-w-md lg:text-xl">
-              Bez formularzy i szukania właściwego wydziału. Resztą zajmie się AI i urząd.
+              {t.heroSub}
             </p>
           </section>
 
@@ -283,12 +299,12 @@ function Home({ onStart, onFile }: { onStart: (source: "camera" | "gallery") => 
           {/* Phone: camera first. On desktop the drop zone on the right replaces these buttons. */}
           <div className="mt-auto pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-8 lg:hidden">
             <button onClick={() => onStart("camera")} className="btn-primary py-5 text-xl">
-              <Camera className="size-6" aria-hidden /> Zgłoś problem
+              <Camera className="size-6" aria-hidden /> {t.reportCta}
             </button>
             <button onClick={() => onStart("gallery")} className="btn-secondary mt-3">
-              <ImageIcon className="size-5" aria-hidden /> Wybierz zdjęcie z galerii
+              <ImageIcon className="size-5" aria-hidden /> {t.gallery}
             </button>
-            <p className="mt-4 text-sm leading-snug text-ink-muted">{CLUSTER_NOTE}</p>
+            <p className="mt-4 text-sm leading-snug text-ink-muted">{t.clusterNote}</p>
           </div>
         </div>
 
@@ -298,11 +314,30 @@ function Home({ onStart, onFile }: { onStart: (source: "camera" | "gallery") => 
   );
 }
 
-const CLUSTER_NOTE =
-  "Zgłoszenia z tego samego miejsca łączymy w jedno – im więcej osób, tym wyższy priorytet w urzędzie.";
+/** PL / EN / UA switch; the choice is remembered on this device. */
+function LanguageSwitch() {
+  const lang = useLang();
+  const t = useT();
+  return (
+    <div className="flex rounded-md bg-surface p-0.5 text-xs font-bold" role="group" aria-label={t.language}>
+      {LANGS.map((l) => (
+        <button
+          key={l}
+          onClick={() => setLang(l)}
+          aria-pressed={lang === l}
+          lang={l}
+          className={`rounded px-1.5 py-1 ${lang === l ? "bg-paper text-primary shadow-sm" : "text-ink-muted hover:text-ink"}`}
+        >
+          {LANG_NAMES[l]}
+        </button>
+      ))}
+    </div>
+  );
+}
 
 /** Desktop only: photos usually already sit on the computer, so accept a dropped file. */
 function DropZone({ onPick, onFile }: { onPick: () => void; onFile: (file: File) => void }) {
+  const t = useT();
   const [over, setOver] = useState(false);
   return (
     <div className="hidden lg:block">
@@ -325,13 +360,13 @@ function DropZone({ onPick, onFile }: { onPick: () => void; onFile: (file: File)
         <span className="flex size-14 items-center justify-center rounded-xl bg-paper text-primary shadow-sm">
           <Upload className="size-7" aria-hidden />
         </span>
-        <p className="mt-5 text-xl font-bold">Przeciągnij tutaj zdjęcie problemu</p>
-        <p className="mt-1 text-ink-muted">JPG, PNG lub WEBP. Lokalizację odczytamy ze zdjęcia albo wskażesz ją na mapie.</p>
+        <p className="mt-5 text-xl font-bold">{t.dropTitle}</p>
+        <p className="mt-1 text-ink-muted">{t.dropBody}</p>
         <button onClick={onPick} className="btn-primary mt-6 w-auto px-6">
-          <ImageIcon className="size-5" aria-hidden /> Wybierz zdjęcie z dysku
+          <ImageIcon className="size-5" aria-hidden /> {t.dropButton}
         </button>
       </div>
-      <p className="mt-4 text-sm leading-snug text-ink-muted">{CLUSTER_NOTE}</p>
+      <p className="mt-4 text-sm leading-snug text-ink-muted">{t.clusterNote}</p>
     </div>
   );
 }
@@ -352,6 +387,7 @@ function Review(props: {
   onBack: () => void;
   onNext: () => void;
 }) {
+  const t = useT();
   const { analysis, onChange } = props;
   const notDetected = analysis.category === DEFAULT_CATEGORY;
   const canSend = !notDetected && analysis.title.trim().length >= 3 && analysis.formal_report.trim().length >= 20;
@@ -368,16 +404,16 @@ function Review(props: {
   );
   const sendBar = (
     <>
-      {notDetected && <p className="mb-2 text-sm font-medium text-warn-ink">Dodaj opis lub wybierz kategorię, aby wysłać.</p>}
+      {notDetected && <p className="mb-2 text-sm font-medium text-warn-ink">{t.needNotes}</p>}
       <button onClick={props.onNext} disabled={!canSend} className="btn-primary">
-        Dalej – potwierdź i wyślij <ArrowRight className="size-5" aria-hidden />
+        {t.next} <ArrowRight className="size-5" aria-hidden />
       </button>
     </>
   );
 
   return (
     <div className="flex flex-1 flex-col">
-      <TopBar title="Sprawdź zgłoszenie" step={2} onBack={props.onBack} />
+      <TopBar title={t.reviewTitle} step={2} onBack={props.onBack} />
       {/* Desktop: photo and location stay in view on the left while the text is edited on the right. */}
       <div className="flex-1 px-5 pb-6 lg:grid lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)] lg:gap-12 lg:px-8 lg:pb-12">
         <div className="lg:sticky lg:top-20 lg:self-start">
@@ -385,7 +421,7 @@ function Review(props: {
             <PhotoPreview url={props.photoUrl} />
             <span className="tag absolute left-2 top-2 bg-paper/95 text-primary shadow-sm">
               <Sparkles className="size-3" aria-hidden />
-              {props.aiSource === "ai" ? "Opis przygotowało AI" : "Tryb demo – AI niedostępne"}
+              {props.aiSource === "ai" ? t.aiBadge : t.demoBadge}
             </span>
           </div>
           {isDesktop && location}
@@ -395,10 +431,10 @@ function Review(props: {
           {notDetected && (
             <div className="mt-5 rounded-lg bg-warn-bg px-4 py-3 text-warn-ink lg:mt-0" role="status">
               <p className="flex items-center gap-2 font-bold">
-                <ScanSearch className="size-5" aria-hidden /> Nie rozpoznaliśmy problemu na zdjęciu
+                <ScanSearch className="size-5" aria-hidden /> {t.notDetectedTitle}
               </p>
               <p className="mt-1 text-[15px] leading-snug">
-                Opisz go własnymi słowami – AI przygotuje zgłoszenie na tej podstawie. Możesz też wybrać kategorię ręcznie.
+                {t.notDetectedBody}
               </p>
             </div>
           )}
@@ -414,7 +450,7 @@ function Review(props: {
 
           <Section>
             <label className="block">
-              <span className="label">Tytuł</span>
+              <span className="label">{t.title}</span>
               <input
                 value={analysis.title}
                 onChange={(e) => onChange({ ...analysis, title: e.target.value })}
@@ -425,14 +461,17 @@ function Review(props: {
 
           <Section>
             <label className="block">
-              <span className="label">Treść pisma do urzędu</span>
+              <span className="label">{t.letter}</span>
               <textarea
                 value={analysis.formal_report}
                 onChange={(e) => onChange({ ...analysis, formal_report: e.target.value })}
                 rows={8}
                 className="input mt-2 field-sizing-content min-h-40 bg-surface text-[15px] leading-relaxed focus:bg-paper"
               />
-              <span className="mt-1.5 block text-sm text-ink-muted">Lokalizację i datę system dopisze automatycznie.</span>
+              <span className="mt-1.5 block text-sm text-ink-muted">
+                {t.letterHint}
+                {t.letterPolish && <> {t.letterPolish}</>}
+              </span>
             </label>
           </Section>
 
@@ -458,6 +497,7 @@ function Section({ children, first = false }: { children: React.ReactNode; first
 
 /** Shows the AI-chosen category compactly; the full list opens only when the resident wants to change it. */
 function CategoryPicker(props: { value: Category; onChange: (c: Category) => void; forceOpen: boolean }) {
+  const t = useT();
   const [open, setOpen] = useState(false);
   const expanded = open || props.forceOpen;
   const selected = props.value === DEFAULT_CATEGORY ? null : props.value;
@@ -465,20 +505,20 @@ function CategoryPicker(props: { value: Category; onChange: (c: Category) => voi
 
   return (
     <fieldset>
-      <legend className="label">Kategoria</legend>
+      <legend className="label">{t.category}</legend>
       {selected && SelectedIcon && (
         <div className="mt-2 flex items-center gap-3">
           <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary-tint text-primary">
             <SelectedIcon className="size-5" aria-hidden />
           </span>
-          <span className="min-w-0 flex-1 text-lg font-medium leading-tight">{CATEGORY_LABELS[selected]}</span>
+          <span className="min-w-0 flex-1 text-lg font-medium leading-tight">{t.categories[selected]}</span>
           <button
             type="button"
             onClick={() => setOpen(!open)}
             aria-expanded={expanded}
             className="link shrink-0 px-1 text-[15px]"
           >
-            {expanded ? "Zwiń" : "Zmień"}
+            {expanded ? t.collapse : t.change}
           </button>
         </div>
       )}
@@ -501,7 +541,7 @@ function CategoryPicker(props: { value: Category; onChange: (c: Category) => voi
                 }`}
               >
                 <Icon className="size-4 shrink-0" aria-hidden />
-                {CATEGORY_LABELS[c]}
+                {t.categories[c]}
               </button>
             );
           })}
@@ -518,22 +558,24 @@ function LocationSection(props: {
   onLocationChoice: (c: LocationChoice) => void;
   onMapPick: (lat: number, lng: number) => void;
 }) {
+  const t = useT();
   const { locations, locationChoice, position } = props;
+  const address = useApproxAddress(position, !(locationChoice === "map" && !locations.map));
   const options: { id: LocationChoice; label: string; icon: typeof MapPin; available: boolean }[] = [
     {
       id: "device",
-      label: locations.device.source === "demo" ? "Demo" : "Moje położenie",
+      label: locations.device.source === "demo" ? t.locDemo : t.locDevice,
       icon: LocateFixed,
       available: true,
     },
-    { id: "exif", label: "Ze zdjęcia", icon: ImageIcon, available: locations.exif !== null },
-    { id: "map", label: "Na mapie", icon: MapIcon, available: true },
+    { id: "exif", label: t.locPhoto, icon: ImageIcon, available: locations.exif !== null },
+    { id: "map", label: t.locMap, icon: MapIcon, available: true },
   ];
   const visible = options.filter((o) => o.available);
 
   return (
     <section>
-      <p className="label">Lokalizacja</p>
+      <p className="label">{t.location}</p>
       <div
         className={`mt-2 grid gap-1 rounded-lg bg-surface p-1 ${visible.length === 3 ? "grid-cols-3" : "grid-cols-2"}`}
       >
@@ -562,21 +604,54 @@ function LocationSection(props: {
         </div>
       )}
 
-      <p className="mt-2 flex items-center gap-1.5 text-sm text-ink-muted">
-        <MapPin className="size-4 shrink-0" aria-hidden />
+      <div className="mt-2 flex items-start gap-1.5 text-sm text-ink-muted">
+        <MapPin className="mt-0.5 size-4 shrink-0" aria-hidden />
         {locationChoice === "map" && !locations.map ? (
-          "Dotknij mapy, aby wskazać miejsce problemu."
-        ) : position.source === "demo" ? (
-          "Brak dostępu do lokalizacji – użyto lokalizacji demonstracyjnej."
+          t.tapMap
         ) : (
-          <span className="font-mono text-[13px]">
-            {position.lat.toFixed(5)}, {position.lng.toFixed(5)}
-            {position.accuracy ? ` · ±${Math.round(position.accuracy)} m` : ""}
-          </span>
+          <div>
+            {address && (
+              <p className="font-bold text-ink">
+                {t.approx} {address}
+              </p>
+            )}
+            {position.source === "demo" ? (
+              <p>{t.noLocation}</p>
+            ) : (
+              <p className="font-mono text-[13px]">
+                {position.lat.toFixed(5)}, {position.lng.toFixed(5)}
+                {position.accuracy ? ` · ±${Math.round(position.accuracy)} m` : ""}
+              </p>
+            )}
+          </div>
         )}
-      </p>
+      </div>
     </section>
   );
+}
+
+/** Approximate street address for the chosen point (OpenStreetMap, via /api/geocode). */
+function useApproxAddress(position: Position, enabled: boolean) {
+  const [result, setResult] = useState<{ key: string; address: string | null } | null>(null);
+  const key = `${position.lat.toFixed(5)},${position.lng.toFixed(5)}`;
+
+  useEffect(() => {
+    if (!enabled) return;
+    const controller = new AbortController();
+    // Debounce map taps; Nominatim allows about one request per second.
+    const timer = setTimeout(() => {
+      fetch(`/api/geocode?lat=${position.lat}&lng=${position.lng}`, { signal: controller.signal })
+        .then((res) => (res.ok ? res.json() : { address: null }))
+        .then((data) => setResult({ key, address: data.address ?? null }))
+        .catch(() => {});
+    }, 500);
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
+  }, [key, enabled, position.lat, position.lng]);
+
+  return enabled && result?.key === key ? result.address : null;
 }
 
 function NotesSection(props: {
@@ -585,6 +660,7 @@ function NotesSection(props: {
   onRegenerate: () => Promise<boolean>;
   highlight: boolean;
 }) {
+  const t = useT();
   const [busy, setBusy] = useState(false);
   const [outcome, setOutcome] = useState<"updated" | "ignored" | "failed" | null>(null);
   const feedback = useRef<HTMLDivElement>(null);
@@ -611,7 +687,7 @@ function NotesSection(props: {
   return (
     <section>
       <label className="block">
-        <span className="label">{props.highlight ? "Twój opis problemu" : "Twój opis (opcjonalnie)"}</span>
+        <span className="label">{props.highlight ? t.notesRequired : t.notesOptional}</span>
         <textarea
           value={props.notes}
           onChange={(e) => {
@@ -620,30 +696,29 @@ function NotesSection(props: {
           }}
           maxLength={NOTES_MAX_LENGTH}
           rows={3}
-          placeholder="Np. dziura jest tu od tygodnia, wieczorem jej nie widać, wpadł w nią rowerzysta"
+          placeholder={t.notesPlaceholder}
           className={`input mt-2 text-[15px] ${props.highlight ? "border-primary ring-4 ring-primary/15" : ""}`}
         />
       </label>
       <button type="button" onClick={run} disabled={busy || !props.notes.trim()} className="btn-secondary mt-2 py-2.5">
         {busy ? <Loader2 className="size-4 animate-spin" aria-hidden /> : <Sparkles className="size-4" aria-hidden />}
-        {busy ? "Generuję zgłoszenie…" : "Uwzględnij opis w zgłoszeniu"}
+        {busy ? t.generating : t.useNotes}
       </button>
       <div ref={feedback}>
         {outcome === "updated" && (
           <p role="status" className="mt-2 flex items-start gap-1.5 text-sm font-medium text-ok">
-            <Check className="mt-0.5 size-4 shrink-0" aria-hidden /> Zaktualizowano zgłoszenie na podstawie Twojego opisu.
+            <Check className="mt-0.5 size-4 shrink-0" aria-hidden /> {t.notesUpdated}
           </p>
         )}
         {outcome === "ignored" && (
           <p role="status" className="mt-2 flex items-start gap-1.5 rounded-lg bg-warn-bg px-3 py-2 text-sm text-warn-ink">
             <TriangleAlert className="mt-0.5 size-4 shrink-0 text-warn-ink" aria-hidden />
-            Opis nie dotyczy zgłaszanego problemu, więc treść zgłoszenia nie została zmieniona. Opisz, co jest nie tak w
-            tym miejscu.
+            {t.notesIgnored}
           </p>
         )}
         {outcome === "failed" && (
           <p role="alert" className="mt-2 text-sm font-medium text-sev-high">
-            Nie udało się wygenerować zgłoszenia. Spróbuj ponownie.
+            {t.notesFailed}
           </p>
         )}
       </div>
@@ -652,18 +727,17 @@ function NotesSection(props: {
 }
 
 function AuthMock({ busy, onBack, onConfirm }: { busy: boolean; onBack: () => void; onConfirm: () => void }) {
+  const t = useT();
   return (
     <div className="flex flex-1 flex-col">
-      <TopBar title="Potwierdzenie tożsamości" step={3} onBack={busy ? undefined : onBack} />
+      <TopBar title={t.authTitle} step={3} onBack={busy ? undefined : onBack} />
       <div className="flex flex-1 flex-col px-5 pt-6 lg:mx-auto lg:w-full lg:max-w-lg lg:pt-16">
-        <p className="label">Logowanie przez mObywatel · symulacja w prototypie</p>
-        <h2 className="display mt-2 text-3xl leading-none">Potwierdź, że to Ty</h2>
-        <p className="mt-3 leading-snug text-ink-muted">
-          Urząd przyjmie zgłoszenie jako oficjalne pismo podpisane Twoimi danymi.
-        </p>
+        <p className="label">{t.authEyebrow}</p>
+        <h2 className="display mt-2 text-3xl leading-none">{t.authHeading}</h2>
+        <p className="mt-3 leading-snug text-ink-muted">{t.authBody}</p>
         <dl className="mt-6 border-y border-rule">
           <div className="flex justify-between border-b border-rule py-3">
-            <dt className="text-ink-muted">Imię i nazwisko</dt>
+            <dt className="text-ink-muted">{t.fullName}</dt>
             <dd className="font-medium">Jan Kowalski</dd>
           </div>
           <div className="flex justify-between py-3">
@@ -674,7 +748,7 @@ function AuthMock({ busy, onBack, onConfirm }: { busy: boolean; onBack: () => vo
         <div className="mt-auto pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-6 lg:mt-10">
           <button onClick={onConfirm} disabled={busy} className="btn-ink">
             {busy ? <Loader2 className="size-5 animate-spin" aria-hidden /> : <Check className="size-5" aria-hidden />}
-            {busy ? "Wysyłanie zgłoszenia…" : "Potwierdź w mObywatel i wyślij"}
+            {busy ? t.sending : t.confirm}
           </button>
         </div>
       </div>
@@ -683,6 +757,7 @@ function AuthMock({ busy, onBack, onConfirm }: { busy: boolean; onBack: () => vo
 }
 
 function Done({ result, title, onAgain }: { result: SubmitResult; title?: string; onAgain: () => void }) {
+  const t = useT();
   return (
     <div className="flex flex-1 flex-col px-5 pt-[max(1.25rem,env(safe-area-inset-top))] lg:px-8 lg:pt-6">
       <Wordmark />
@@ -691,43 +766,41 @@ function Done({ result, title, onAgain }: { result: SubmitResult; title?: string
         <span className="flex size-12 items-center justify-center rounded-xl bg-ok-tint text-ok">
           <Check className="size-7" aria-hidden />
         </span>
-        <h2 className="display mt-5 text-[2.8rem] leading-[0.95]">Zgłoszenie wysłane</h2>
+        <h2 className="display mt-5 text-[2.8rem] leading-[0.95]">{t.sent}</h2>
         {title && <p className="mt-2 text-lg text-ink-muted">{title}</p>}
       </div>
 
       {/* Receipt-style summary with the reference number. */}
       <dl className="mt-8 rounded-xl bg-surface px-4">
         <div className="flex items-baseline justify-between border-b border-rule py-3">
-          <dt className="label">Numer zgłoszenia</dt>
+          <dt className="label">{t.ticketNo}</dt>
           <dd className="font-mono text-lg font-medium" data-ticket-id={result.ticketId}>
             {ticketNumber(result.ticketId)}
           </dd>
         </div>
         <div className="flex items-center justify-between gap-4 py-3">
-          <dt className="label">Zgłosili ten problem</dt>
+          <dt className="label">{t.reportedBy}</dt>
           <dd className="display text-4xl leading-none tabular-nums">{result.severity_score}</dd>
         </div>
       </dl>
       <p className="mt-4 leading-snug">
         {result.merged ? (
           <>
-            <strong>{reportersText(result.severity_score)}.</strong> Dołączyliśmy Twoje zdjęcie do istniejącego zgłoszenia
-            i podnieśliśmy jego priorytet w urzędzie.
+            <strong>{t.merged(result.severity_score)}.</strong> {t.mergedBody}
           </>
         ) : (
           <>
-            <strong>Jesteś pierwszą osobą, która to zgłosiła.</strong> Urząd otrzymał nowe zgłoszenie z Twoim zdjęciem i
-            lokalizacją.
+            <strong>{t.firstTitle}</strong> {t.firstBody}
           </>
         )}
       </p>
 
       <div className="mt-auto space-y-3 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-8 lg:mt-4">
         <Link href="/moje-zgloszenia" className="btn-secondary">
-          Śledź status w „Moich zgłoszeniach”
+          {t.track}
         </Link>
         <button onClick={onAgain} className="btn-primary">
-          <Camera className="size-5" aria-hidden /> Zgłoś kolejny problem
+          <Camera className="size-5" aria-hidden /> {t.another}
         </button>
       </div>
       </div>
@@ -735,29 +808,26 @@ function Done({ result, title, onAgain }: { result: SubmitResult; title?: string
   );
 }
 
-// Polish plural: 2–4 (except 12–14) "osoby zgłosiły", otherwise "osób zgłosiło".
-function reportersText(n: number) {
-  const few = n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14);
-  return few ? `Ten problem zgłosiły już ${n} osoby` : `Ten problem zgłosiło już ${n} osób`;
-}
 
 function TopBar({ title, step, onBack }: { title: string; step?: number; onBack?: () => void }) {
+  const t = useT();
   return (
     <header className="sticky top-0 z-10 flex items-center gap-2 border-b border-rule bg-paper px-3 pb-2.5 pt-[max(0.75rem,env(safe-area-inset-top))] lg:mb-6 lg:px-6 lg:py-4">
       {onBack ? (
-        <button onClick={onBack} aria-label="Wstecz" className="rounded-lg p-2 hover:bg-surface">
+        <button onClick={onBack} aria-label={t.back} className="rounded-lg p-2 hover:bg-surface">
           <ArrowLeft className="size-5" />
         </button>
       ) : (
         <span className="size-9" />
       )}
       <h1 className="display flex-1 text-xl leading-none">{title}</h1>
-      {step && <span className="font-mono text-[13px] text-ink-muted">Krok {step}/3</span>}
+      {step && <span className="font-mono text-[13px] text-ink-muted">{t.step(step)}</span>}
     </header>
   );
 }
 
 function PhotoPreview({ url }: { url: string }) {
+  const t = useT();
   // eslint-disable-next-line @next/next/no-img-element -- local object URL
-  return <img src={url} alt="Zdjęcie zgłoszenia" className="mt-4 aspect-[4/3] w-full rounded-xl object-cover" />;
+  return <img src={url} alt={t.photoAlt} className="mt-4 aspect-[4/3] w-full rounded-xl object-cover" />;
 }

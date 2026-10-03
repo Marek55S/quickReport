@@ -48,10 +48,22 @@ export const NOTES_MAX_LENGTH = 1000;
 export const STATUSES = ["OPEN", "IN_PROGRESS", "RESOLVED"] as const;
 export type TicketStatus = (typeof STATUSES)[number];
 
+export const DANGER_LEVELS = [1, 2, 3, 4, 5] as const;
+export const DANGER_LABELS: Record<number, string> = {
+  1: "Minimalne",
+  2: "Niskie",
+  3: "Umiarkowane",
+  4: "Wysokie",
+  5: "Krytyczne",
+};
+
 export const AnalysisSchema = z.object({
   category: z.enum(CATEGORIES),
   title: z.string().min(3).max(120),
   formal_report: z.string().min(20).max(4000),
+  // AI-assessed danger, a second priority factor next to the report count (dashboard only).
+  danger_level: z.number().int().min(1).max(5),
+  danger_reason: z.string().max(300),
 });
 export type Analysis = z.infer<typeof AnalysisSchema>;
 
@@ -68,6 +80,11 @@ export const CoordinatesSchema = z.object({
 export type Ticket = {
   id: string;
   geohash: string;
+  address?: string;
+  danger_level: number;
+  danger_reason?: string;
+  resolution_image_url?: string;
+  resolved_note?: string;
   category: Category;
   title: string;
   formal_report: string;
@@ -87,6 +104,9 @@ export type Ticket = {
 export type MyReport = {
   id: string;
   ticket_id: string;
+  address?: string;
+  resolution_image_url?: string;
+  resolved_note?: string;
   title: string;
   category: Category;
   image_url: string;
@@ -103,4 +123,15 @@ export type SubmitResult = {
   ticketId: string;
   merged: boolean;
   severity_score: number;
+};
+
+/** Aggregates for the dashboard statistics view. */
+export type Stats = {
+  by_status: Record<TicketStatus, number>;
+  by_category: { category: Category; tickets: number; reports: number }[];
+  daily_reports: { date: string; count: number }[];
+  avg_resolution_hours: number | null;
+  resolved_count: number;
+  total_reports: number;
+  top_danger: { id: string; title: string; danger_level: number; severity_score: number; address?: string }[];
 };

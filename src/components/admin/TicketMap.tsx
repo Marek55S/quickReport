@@ -12,11 +12,14 @@ type Props = {
   tickets: Ticket[];
   selectedId: string | null;
   onSelect: (id: string) => void;
+  /** Show a single ticket: start centred on it and skip automatic fitting (used in the ticket window). */
+  focus?: boolean;
 };
 
-export default function TicketMap({ tickets, selectedId, onSelect }: Props) {
+export default function TicketMap({ tickets, selectedId, onSelect, focus = false }: Props) {
+  const start: [number, number] = focus && tickets[0] ? [tickets[0].gps_lat, tickets[0].gps_lng] : KRAKOW;
   return (
-    <MapContainer center={KRAKOW} zoom={14} className="size-full" scrollWheelZoom>
+    <MapContainer center={start} zoom={focus ? 17 : 14} className="size-full" scrollWheelZoom>
       <TileLayer
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
@@ -45,18 +48,26 @@ export default function TicketMap({ tickets, selectedId, onSelect }: Props) {
           </CircleMarker>
         );
       })}
-      <Viewport tickets={tickets} selectedId={selectedId} />
+      <Viewport tickets={tickets} selectedId={selectedId} fit={!focus} />
     </MapContainer>
   );
 }
 
-function Viewport({ tickets, selectedId }: { tickets: Ticket[]; selectedId: string | null }) {
+function Viewport({ tickets, selectedId, fit }: { tickets: Ticket[]; selectedId: string | null; fit: boolean }) {
   const map = useMap();
+  // Fitting needs real dimensions; a zero-size container (e.g. a dialog still opening) yields NaN coordinates.
+  const hasSize = () => map.getSize().x > 0 && map.getSize().y > 0;
   const ids = tickets.map((t) => t.id).join();
+
+  // The map may mount inside a dialog that is still opening; re-measure once it has a size.
+  useEffect(() => {
+    const timer = setTimeout(() => map.invalidateSize(), 150);
+    return () => clearTimeout(timer);
+  }, [map]);
 
   // Fit all markers whenever the set of tickets changes (not on severity updates).
   useEffect(() => {
-    if (!tickets.length) return;
+    if (!fit || !tickets.length || !hasSize()) return;
     map.fitBounds(
       tickets.map((t) => [t.gps_lat, t.gps_lng] as [number, number]),
       { padding: [60, 60], maxZoom: 16 },
@@ -66,7 +77,7 @@ function Viewport({ tickets, selectedId }: { tickets: Ticket[]; selectedId: stri
 
   useEffect(() => {
     const t = tickets.find((x) => x.id === selectedId);
-    if (t) map.flyTo([t.gps_lat, t.gps_lng], Math.max(map.getZoom(), 16), { duration: 0.6 });
+    if (fit && t && hasSize()) map.flyTo([t.gps_lat, t.gps_lng], Math.max(map.getZoom(), 16), { duration: 0.6 });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedId, map]);
 

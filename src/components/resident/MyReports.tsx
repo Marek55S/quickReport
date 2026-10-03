@@ -2,15 +2,18 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
+import { Lightbox, PhotoButton } from "@/components/Lightbox";
 import { ArrowLeft, Camera, Loader2, RefreshCw } from "lucide-react";
 import { CATEGORY_ICONS } from "@/components/categories";
-import { StatusTag, ticketNumber } from "@/components/ui";
-import { CATEGORY_LABELS, type MyReport } from "@/lib/types";
+import { ticketNumber } from "@/components/ui";
+import type { MyReport } from "@/lib/types";
+import { useLang, useT } from "./i18n";
 import { getReporterId } from "./reporter";
 
 type State = { kind: "loading" } | { kind: "error" } | { kind: "ready"; reports: MyReport[] };
 
 export default function MyReports() {
+  const t = useT();
   const [state, setState] = useState<State>({ kind: "loading" });
 
   const load = useCallback(async () => {
@@ -38,28 +41,28 @@ export default function MyReports() {
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col bg-paper lg:max-w-3xl">
       <header className="sticky top-0 z-10 flex items-center gap-2 border-b border-rule bg-paper px-3 pb-2.5 pt-[max(0.75rem,env(safe-area-inset-top))] lg:px-6 lg:py-4">
-        <Link href="/" aria-label="Wstecz" className="rounded-lg p-2 hover:bg-surface">
+        <Link href="/" aria-label={t.back} className="rounded-lg p-2 hover:bg-surface">
           <ArrowLeft className="size-5" />
         </Link>
-        <h1 className="display flex-1 text-xl leading-none">Moje zgłoszenia</h1>
-        <button onClick={load} aria-label="Odśwież" className="rounded-lg p-2 text-ink-muted hover:bg-surface">
+        <h1 className="display flex-1 text-xl leading-none">{t.myReports}</h1>
+        <button onClick={load} aria-label={t.refresh} className="rounded-lg p-2 text-ink-muted hover:bg-surface">
           <RefreshCw className="size-5" />
         </button>
       </header>
 
       <div className="flex-1 px-5 pb-10 lg:px-8">
-        {state.kind === "loading" && <Loader2 className="mx-auto mt-16 size-8 animate-spin" aria-label="Ładowanie" />}
+        {state.kind === "loading" && <Loader2 className="mx-auto mt-16 size-8 animate-spin" aria-label={t.loading} />}
         {state.kind === "error" && (
           <p className="mt-16 text-ink-muted" role="alert">
-            Nie udało się pobrać zgłoszeń. Spróbuj ponownie.
+            {t.myError}
           </p>
         )}
         {state.kind === "ready" && state.reports.length === 0 && (
           <div className="mt-12">
-            <h2 className="display text-3xl leading-none">Nic tu jeszcze nie ma</h2>
-            <p className="mt-3 text-ink-muted">Nie masz jeszcze zgłoszeń wysłanych z tego urządzenia.</p>
+            <h2 className="display text-3xl leading-none">{t.emptyTitle}</h2>
+            <p className="mt-3 text-ink-muted">{t.emptyBody}</p>
             <Link href="/" className="btn-primary mt-8">
-              <Camera className="size-5" aria-hidden /> Zgłoś problem
+              <Camera className="size-5" aria-hidden /> {t.reportCta}
             </Link>
           </div>
         )}
@@ -75,52 +78,85 @@ export default function MyReports() {
   );
 }
 
-const STAGES = ["Przyjęte", "W realizacji", "Rozwiązane"] as const;
+const LOCALES = { pl: "pl-PL", en: "en-GB", uk: "uk-UA" } as const;
 
 function ReportRow({ report: r }: { report: MyReport }) {
+  const t = useT();
+  const locale = LOCALES[useLang()];
+  const [viewer, setViewer] = useState<number | null>(null);
+  const photos = [
+    { src: r.image_url, alt: `${r.title} – ${t.before}`, caption: t.before },
+    ...(r.resolution_image_url ? [{ src: r.resolution_image_url, alt: `${r.title} – ${t.after}`, caption: t.after }] : []),
+  ];
   const Icon = CATEGORY_ICONS[r.category];
   const stage = r.status === "RESOLVED" ? 3 : r.status === "IN_PROGRESS" ? 2 : 1;
   const dates = [r.created_at, r.in_progress_at, r.resolved_at];
-  const fmt = (iso?: string) => (iso ? new Date(iso).toLocaleDateString("pl-PL", { day: "numeric", month: "short" }) : "");
+  const fmt = (iso?: string) => (iso ? new Date(iso).toLocaleDateString(locale, { day: "numeric", month: "short" }) : "");
 
   return (
     <li className="border-b border-rule py-4">
       <div className="flex gap-3">
-        {/* eslint-disable-next-line @next/next/no-img-element -- served by /api/images */}
-        <img src={r.image_url} alt="" className="size-16 shrink-0 rounded-lg bg-rule object-cover lg:size-20" />
+        <PhotoButton
+          src={r.image_url}
+          alt={photos[0].alt}
+          openLabel={t.enlarge}
+          onOpen={() => setViewer(0)}
+          className="size-16 rounded-lg bg-rule object-cover lg:size-20"
+        />
         <div className="min-w-0 flex-1">
           <div className="flex items-center justify-between gap-2">
             <span className="ticket-no">{ticketNumber(r.ticket_id)}</span>
-            <StatusTag status={r.status} />
+            <span className={`tag ${STAGE_STYLE[stage - 1]}`}>{t.stages[stage - 1]}</span>
           </div>
-          <h2 className="mt-1 truncate text-lg font-medium leading-tight">{r.title}</h2>
+          <h2 className="mt-1 truncate text-lg font-bold leading-tight">{r.title}</h2>
           <p className="mt-0.5 flex items-center gap-1.5 text-sm text-ink-muted">
             <Icon className="size-3.5 shrink-0" aria-hidden />
-            <span className="truncate">{CATEGORY_LABELS[r.category]}</span>
+            <span className="truncate">{r.address ?? t.categories[r.category]}</span>
           </p>
-          {r.severity_score > 1 && (
-            <p className="text-sm text-ink-muted">
-              Zgłoszeń tego problemu: <b className="font-semibold tabular-nums text-ink">{r.severity_score}</b>
-            </p>
-          )}
+          {r.severity_score > 1 && <p className="text-sm text-ink-muted">{t.reportsCount(r.severity_score)}</p>}
         </div>
       </div>
 
       {/* Three-segment progress, like a route indicator. */}
-      <ol className="mt-3 grid grid-cols-3 gap-1" aria-label={`Etap ${stage} z 3: ${STAGES[stage - 1]}`}>
-        {STAGES.map((label, i) => {
+      <ol className="mt-3 grid grid-cols-3 gap-1" aria-label={t.stageOf(stage, t.stages[stage - 1])}>
+        {t.stages.map((label, i) => {
           const done = i < stage;
           return (
             <li key={label}>
               <div className={`h-1.5 rounded-full ${done ? (stage === 3 ? "bg-ok" : "bg-primary") : "bg-rule"}`} />
-              <p className={`mt-1 text-[13px] leading-tight ${done ? "font-medium" : "text-ink-faint"}`}>
+              <p className={`mt-1 text-[13px] leading-tight ${done ? "font-bold" : "text-ink-faint"}`}>
                 {label}
-                {done && dates[i] && <span className="block font-mono text-[11px] text-ink-muted">{fmt(dates[i])}</span>}
+                {done && dates[i] && <span className="block font-mono text-[11px] font-normal text-ink-muted">{fmt(dates[i])}</span>}
               </p>
             </li>
           );
         })}
       </ol>
+
+      {r.resolution_image_url && (
+        <figure className="mt-3 grid grid-cols-2 gap-2">
+          {photos.map((photo, i) => (
+            <div key={photo.caption}>
+              <PhotoButton
+                src={photo.src}
+                alt={photo.alt}
+                openLabel={t.enlarge}
+                onOpen={() => setViewer(i)}
+                className="aspect-[4/3] w-full rounded-lg bg-rule object-cover"
+              />
+              <p className="mt-1 text-xs font-bold text-ink-muted">{photo.caption}</p>
+            </div>
+          ))}
+          {r.resolved_note && <figcaption className="col-span-2 text-sm">{r.resolved_note}</figcaption>}
+        </figure>
+      )}
+      {viewer !== null && <Lightbox images={photos} index={viewer} labels={t.viewer} onClose={() => setViewer(null)} />}
     </li>
   );
 }
+
+const STAGE_STYLE = [
+  "bg-surface text-ink-muted ring-1 ring-inset ring-rule-strong",
+  "bg-primary-tint text-primary-dark",
+  "bg-ok-tint text-ok",
+];

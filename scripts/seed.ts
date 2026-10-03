@@ -1,60 +1,179 @@
-// Seeds demo tickets around Kraków city centre through the real clustering logic.
-// Run: pnpm seed  (deletes all existing tickets first)
+// Seeds illustrative demo tickets around Kraków city centre through the real clustering logic.
+// Photos: freely licensed Wikimedia Commons images in scripts/seed-images (see docs/ATTRIBUTION.md).
+// Run: pnpm seed  (replaces previous demo tickets; real reports are kept)
+import { readFileSync } from "node:fs";
+import { Timestamp } from "@google-cloud/firestore";
 import { Storage } from "@google-cloud/storage";
-import { deleteAllTickets, submitReport } from "../src/lib/tickets";
-import { CATEGORY_LABELS, type Category } from "../src/lib/types";
+import { db } from "../src/lib/firestore";
+import { reverseGeocode } from "../src/lib/geocode";
+import { deleteSeedTickets, setTicketStatus, submitReport } from "../src/lib/tickets";
+import type { Category, TicketStatus } from "../src/lib/types";
 
-const COLORS: Partial<Record<Category, string>> = {
-  ROAD_DAMAGE: "#b45309",
-  ACCESSIBILITY_BARRIER: "#7c3aed",
-  INFRASTRUCTURE_FAILURE: "#dc2626",
-  PUBLIC_TRANSPORT: "#0284c7",
-  WASTE: "#65a30d",
+type Demo = {
+  category: Category;
+  title: string;
+  report: string;
+  danger: [number, string];
+  lat: number;
+  lng: number;
+  photos: string[];
+  reports: number;
+  /** Days ago the first report arrived. */
+  age: number;
+  status?: TicketStatus;
+  resolution?: { photo: string; note: string; afterDays: number };
 };
 
-const DEMO: { category: Category; title: string; lat: number; lng: number; reports: number; report: string }[] = [
-  { category: "ROAD_DAMAGE", title: "Głęboka wyrwa w jezdni", lat: 50.06465, lng: 19.94498, reports: 7,
-    report: "Uprzejmie informuję o głębokiej wyrwie w nawierzchni jezdni, stanowiącej zagrożenie dla bezpieczeństwa ruchu drogowego. Wnoszę o pilne zabezpieczenie miejsca i naprawę nawierzchni." },
-  { category: "ACCESSIBILITY_BARRIER", title: "Brak obniżenia krawężnika przy przejściu", lat: 50.06171, lng: 19.93736, reports: 4,
-    report: "Zgłaszam brak obniżenia krawężnika przy przejściu dla pieszych, co uniemożliwia bezpieczne przejście osobom poruszającym się na wózkach oraz z wózkami dziecięcymi. Wnoszę o dostosowanie przejścia do potrzeb osób z niepełnosprawnościami." },
-  { category: "INFRASTRUCTURE_FAILURE", title: "Niedziałająca latarnia uliczna", lat: 50.05795, lng: 19.93812, reports: 3,
-    report: "Informuję o niedziałającym oświetleniu ulicznym, co w porze wieczornej obniża bezpieczeństwo pieszych. Proszę o naprawę latarni." },
-  { category: "ROAD_DAMAGE", title: "Zapadnięte płyty chodnikowe", lat: 50.06802, lng: 19.94733, reports: 2,
-    report: "Zgłaszam zapadnięte i obluzowane płyty chodnikowe, grożące potknięciem i upadkiem pieszych. Wnoszę o naprawę nawierzchni chodnika." },
-  { category: "WASTE", title: "Nielegalne wysypisko odpadów", lat: 50.05301, lng: 19.94402, reports: 1,
-    report: "Informuję o nielegalnie porzuconych odpadach wielkogabarytowych na terenie publicznym. Proszę o ich usunięcie." },
-  { category: "PUBLIC_TRANSPORT", title: "Uszkodzona wiata przystankowa", lat: 50.06633, lng: 19.92991, reports: 1,
-    report: "Zgłaszam uszkodzoną wiatę przystankową (rozbita szyba), stwarzającą ryzyko skaleczenia pasażerów. Wnoszę o zabezpieczenie i naprawę." },
+const DEMO: Demo[] = [
+  {
+    category: "ROAD_DAMAGE",
+    title: "Głęboka wyrwa w jezdni",
+    report:
+      "Szanowni Państwo, uprzejmie informuję o głębokiej wyrwie w nawierzchni jezdni, stanowiącej zagrożenie dla bezpieczeństwa ruchu drogowego. Ubytek ma ostre krawędzie i znajduje się na pasie ruchu. Wnoszę o pilne zabezpieczenie miejsca i naprawę nawierzchni.",
+    danger: [4, "Głęboka wyrwa na pasie ruchu grozi uszkodzeniem pojazdów i upadkiem rowerzystów."],
+    lat: 50.06465,
+    lng: 19.94498,
+    photos: ["pothole-deep"],
+    reports: 7,
+    age: 9,
+  },
+  {
+    category: "ROAD_DAMAGE",
+    title: "Zapadnięte płyty chodnikowe",
+    report:
+      "Szanowni Państwo, zgłaszam zapadnięte i wypiętrzone płyty chodnikowe przy drzewie, grożące potknięciem i upadkiem pieszych, szczególnie po zmroku i w czasie opadów. Wnoszę o naprawę nawierzchni chodnika.",
+    danger: [3, "Wystające krawędzie płyt na ciągu pieszym grożą potknięciem i upadkiem."],
+    lat: 50.06681,
+    lng: 19.93005,
+    photos: ["pavement"],
+    reports: 4,
+    age: 12,
+  },
+  {
+    category: "PUBLIC_TRANSPORT",
+    title: "Wybita szyba w wiacie przystankowej",
+    report:
+      "Szanowni Państwo, informuję o wybitej szybie w wiacie przystankowej. Odłamki szkła leżą na chodniku i ławce, co stwarza ryzyko skaleczenia oczekujących pasażerów. Wnoszę o uprzątnięcie szkła i wymianę szyby.",
+    danger: [3, "Odłamki szkła przy ławce grożą skaleczeniem pasażerów, w tym dzieci."],
+    lat: 50.06633,
+    lng: 19.92991,
+    photos: ["shelter", "shelter-2"],
+    reports: 3,
+    age: 4,
+  },
+  {
+    category: "INFRASTRUCTURE_FAILURE",
+    title: "Uszkodzona oprawa latarni",
+    report:
+      "Szanowni Państwo, zgłaszam uszkodzoną, przekrzywioną oprawę latarni ulicznej. Element może odpaść, a oświetlenie ulicy jest niewystarczające. Proszę o zabezpieczenie i naprawę latarni.",
+    danger: [2, "Przekrzywiona oprawa może spaść; ulica jest gorzej oświetlona."],
+    lat: 50.05795,
+    lng: 19.93812,
+    photos: ["lamp"],
+    reports: 2,
+    age: 6,
+    status: "IN_PROGRESS",
+  },
+  {
+    category: "WASTE",
+    title: "Dzikie wysypisko przy drodze",
+    report:
+      "Szanowni Państwo, informuję o nielegalnie porzuconych odpadach, w tym gruzie i workach ze śmieciami, na poboczu drogi. Proszę o ich usunięcie i rozważenie monitoringu miejsca.",
+    danger: [2, "Odpady zawężają przejście i mogą zawierać materiały niebezpieczne."],
+    lat: 50.05301,
+    lng: 19.94402,
+    photos: ["dumping"],
+    reports: 1,
+    age: 2,
+  },
+  {
+    category: "INFRASTRUCTURE_FAILURE",
+    title: "Przewrócona tablica z nazwą ulicy",
+    report:
+      "Szanowni Państwo, zgłaszam przewróconą tablicę z nazwą ulicy, która leży w zaroślach przy jezdni. Proszę o jej ponowne zamontowanie.",
+    danger: [1, "Brak bezpośredniego zagrożenia; utrudniona orientacja w terenie."],
+    lat: 50.0702,
+    lng: 19.9468,
+    photos: ["sign"],
+    reports: 1,
+    age: 1,
+  },
+  {
+    category: "ROAD_DAMAGE",
+    title: "Dziura w jezdni przy krawężniku",
+    report:
+      "Szanowni Państwo, zgłaszam ubytek w nawierzchni jezdni przy krawędzi drogi, w którym zbiera się woda. Wnoszę o uzupełnienie nawierzchni.",
+    danger: [3, "Ubytek przy krawędzi jezdni grozi uszkodzeniem kół i wywrotką rowerzysty."],
+    lat: 50.0611,
+    lng: 19.9512,
+    photos: ["pothole-small"],
+    reports: 2,
+    age: 13,
+    status: "RESOLVED",
+    resolution: { photo: "repaired", note: "Ubytek uzupełniony masą asfaltową.", afterDays: 3 },
+  },
 ];
 
-function placeholder(category: Category, title: string) {
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="640" height="480" viewBox="0 0 640 480">
-  <rect width="640" height="480" fill="${COLORS[category] ?? "#475569"}"/>
-  <text x="320" y="225" font-family="sans-serif" font-size="30" fill="#fff" text-anchor="middle">${title}</text>
-  <text x="320" y="270" font-family="sans-serif" font-size="20" fill="#fff" opacity="0.8" text-anchor="middle">${CATEGORY_LABELS[category]} · zdjęcie demo</text>
-</svg>`;
-}
+const daysAgo = (days: number) => Timestamp.fromMillis(Date.now() - days * 86_400_000);
 
 async function main() {
-  await deleteAllTickets();
+  console.log(`Usunięto poprzednie zgłoszenia demo: ${await deleteSeedTickets()}`);
   const bucket = new Storage().bucket(process.env.GCS_BUCKET!);
+  const uploaded = new Set<string>();
+  const upload = async (name: string) => {
+    const path = `seed/${name}.jpg`;
+    if (!uploaded.has(name)) {
+      await bucket.file(path).save(readFileSync(`scripts/seed-images/${name}.jpg`), { contentType: "image/jpeg" });
+      uploaded.add(name);
+    }
+    return path;
+  };
+
   for (const item of DEMO) {
-    const imagePath = `seed/${item.category.toLowerCase()}-${item.lat}-${item.lng}.svg`;
-    await bucket.file(imagePath).save(placeholder(item.category, item.title), { contentType: "image/svg+xml" });
-    let result;
+    const address = await reverseGeocode(item.lat, item.lng);
+    let ticketId = "";
     for (let i = 0; i < item.reports; i++) {
-      // A few metres of jitter, as real phones would report.
-      result = await submitReport({
+      const result = await submitReport({
         category: item.category,
         title: item.title,
         formal_report: item.report,
+        danger_level: item.danger[0],
+        danger_reason: item.danger[1],
+        // A few metres of jitter, as real phones would report.
         lat: item.lat + i * 0.000005,
         lng: item.lng + i * 0.000005,
         locationSource: "device",
-        imagePath,
+        imagePath: await upload(item.photos[i % item.photos.length]),
+        address,
+      });
+      ticketId = result.ticketId;
+    }
+
+    // Spread report times over the past days so the statistics view has history (illustrative data).
+    const ticketRef = db.collection("tickets").doc(ticketId);
+    const submissions = await db.collection("reports").where("ticket_id", "==", ticketId).get();
+    await Promise.all(
+      submissions.docs.map((doc, i) =>
+        doc.ref.update({ created_at: daysAgo(item.age - (i * item.age) / Math.max(item.reports, 1)) }),
+      ),
+    );
+    await ticketRef.update({ created_at: daysAgo(item.age), updated_at: daysAgo(Math.max(item.age - 1, 0)) });
+
+    if (item.status === "IN_PROGRESS") {
+      await setTicketStatus(ticketId, "IN_PROGRESS");
+      await ticketRef.update({ in_progress_at: daysAgo(Math.max(item.age - 2, 0)) });
+    }
+    if (item.status === "RESOLVED" && item.resolution) {
+      await setTicketStatus(ticketId, "RESOLVED", {
+        imagePath: await upload(item.resolution.photo),
+        note: item.resolution.note,
+      });
+      await ticketRef.update({
+        in_progress_at: daysAgo(item.age - 1),
+        resolved_at: daysAgo(item.age - item.resolution.afterDays),
       });
     }
-    console.log(`${item.title}: ticket ${result!.ticketId}, severity ${result!.severity_score}`);
+    console.log(`${item.title}: ${item.reports} zgł., zagrożenie ${item.danger[0]}, ${address ?? "brak adresu"}`);
   }
 }
 

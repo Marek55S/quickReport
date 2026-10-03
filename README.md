@@ -2,7 +2,9 @@
 
 One-snap city issue reporting: a resident takes a photo, AI classifies the problem and drafts a formal report, and duplicate reports from the same spot are clustered into one prioritized ticket for city officials.
 
-Planned features: [docs/ROADMAP.md](docs/ROADMAP.md).
+Features: one-photo report with AI category, formal letter, and danger level (Gemini); clustering of duplicates; approximate address (OpenStreetMap Nominatim); location from phone, photo EXIF, or map pin; resident app in Polish, English, and Ukrainian; "Moje zgłoszenia" with status and before/after photos; official dashboard with filters, search, map, after-repair photo, and statistics.
+
+Planned features: [docs/ROADMAP.md](docs/ROADMAP.md). Third-party material: [docs/ATTRIBUTION.md](docs/ATTRIBUTION.md).
 
 ## Running locally
 
@@ -16,7 +18,7 @@ pnpm dev                     # http://localhost:3000 (resident), /admin (officia
 
 For real Google Cloud services, run `gcloud auth application-default login`, set `AI_MOCK=0` in `.env.local`, and use:
 
-- `pnpm seed`: reset Firestore and load demo tickets around Kraków
+- `pnpm seed`: replace the demo tickets around Kraków (real reports are kept); photos from Wikimedia Commons, see [docs/ATTRIBUTION.md](docs/ATTRIBUTION.md)
 - `pnpm check:clustering`: verify the clustering rules against Firestore (cleans up after itself)
 
 Other commands: `pnpm build`, `pnpm lint`.

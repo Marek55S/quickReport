@@ -33,10 +33,12 @@ Implemented on branch `feature/report-input-options` ([specification](../.ai/spe
 - When the photo shows nothing relevant (the default "no issue detected" category), generate the report from the notes alone.
 - Treat notes as untrusted input in the prompt and keep the structured output validation.
 
+## Implemented on 2026-10-03
+
+See [specification](../.ai/specs/2026-10-03-official-tools-and-i18n.md): AI danger level (second priority factor, filterable), approximate address, after-repair photo, dashboard filters/search/sort, statistics view, PL/EN/UK resident UI, real demo photos.
+
 ## Other ideas
 
-- Reverse geocoding of the address into the formal report (e.g. Nominatim).
-- AI-assessed severity (danger level) combined with report count for priority.
 - Firestore real-time listeners instead of polling on the dashboard.
 - Service worker with offline report queueing.
 - Real mObywatel / login.gov.pl authentication; per-user dashboard accounts with roles (a shared-password login is implemented).

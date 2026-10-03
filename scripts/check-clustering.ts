@@ -8,6 +8,8 @@ const base = {
   title: "Test clustering",
   formal_report: "Automatyczny test klastrowania zgłoszeń – do usunięcia.",
   imagePath: "test/none.jpg",
+  danger_level: 2,
+  danger_reason: "Test",
 };
 // Point in the Baltic Sea, so test data never mixes with demo data.
 const spot = { lat: 55.000001, lng: 18.000001 };
@@ -24,13 +26,19 @@ async function main() {
   assert.equal(second.merged, true);
   assert.equal(second.severity_score, 2);
 
+  // A merged report with a higher AI danger level raises the ticket's level.
+  await submitReport({ ...base, ...spot, category: "ROAD_DAMAGE", danger_level: 4, danger_reason: "Wyższe" });
+  const raised = await db.collection("tickets").doc(first.ticketId).get();
+  assert.equal(raised.get("danger_level"), 4, "merge keeps the higher danger level");
+  assert.equal(raised.get("severity_score"), 3);
+
   const images = await db.collection("tickets").doc(first.ticketId).collection("images").get();
-  assert.equal(images.size, 2, "merged report attaches its image");
+  assert.equal(images.size, 3, "merged reports attach their images");
 
   // Same category one cell away (8-char cells are ~19 m tall) still joins the ticket.
   const neighbour = await submitReport({ ...base, lat: spot.lat + 0.0002, lng: spot.lng, category: "ROAD_DAMAGE" });
   assert.equal(neighbour.ticketId, first.ticketId, "neighbouring cell must merge");
-  assert.equal(neighbour.severity_score, 3);
+  assert.equal(neighbour.severity_score, 4);
 
   const far = await submitReport({ ...base, lat: spot.lat + 0.002, lng: spot.lng, category: "ROAD_DAMAGE" });
   created.add(far.ticketId);

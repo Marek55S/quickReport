@@ -10,7 +10,7 @@ Plan and task status: [`.ai/specs/2026-10-03-one-snap-reporting-mvp.md`](specs/2
 | Challenge and intended users | SMART CITY; residents reporting issues and city officials triaging them |
 | Product scope and demo scenario | See the specification |
 | Application components and stack | Next.js 16 (App Router, TypeScript) + Tailwind CSS 4 + lucide-react, one app: resident PWA at `/`, official dashboard at `/admin` (react-leaflet map) |
-| Data sources and external integrations | Google Cloud project `quickreport-hy26`: Gemini `gemini-2.5-flash` on Vertex AI (`europe-west1`), Firestore Native (`eur3`), private Cloud Storage bucket `quickreport-hy26-report-images` (`europe-central2`); OpenStreetMap tiles for the map |
+| Data sources and external integrations | OpenStreetMap Nominatim reverse geocoding; Google Cloud project `quickreport-hy26`: Gemini `gemini-2.5-flash` on Vertex AI (`europe-west1`), Firestore Native (`eur3`), private Cloud Storage bucket `quickreport-hy26-report-images` (`europe-central2`); OpenStreetMap tiles for the map |
 | Persistence and identity | Firestore collections `tickets` (+ `images` subcollection), `open_clusters`, and `reports` (one per submission, keyed by an anonymous per-device `reporter_id`); Google services via Application Default Credentials; mObywatel login is a mock; dashboard protected by a shared `ADMIN_PASSWORD` with an HMAC-signed session cookie |
 | Hosting and deployment | Proposed: Cloud Run (`output: "standalone"` is configured); not deployed |
 | Build, test, and run commands | `pnpm install`, `pnpm dev`, `pnpm build`, `pnpm lint`, `pnpm check:clustering`, `pnpm seed` |
@@ -35,7 +35,11 @@ Plan and task status: [`.ai/specs/2026-10-03-one-snap-reporting-mvp.md`](specs/2
 | `src/app/api/reports/`, `src/app/api/tickets/` | Report submission (upload + clustering), ticket listing, photos, status updates |
 | `src/app/manifest.ts`, `src/app/icon.svg` | PWA manifest and app icon |
 | `src/lib/tickets.ts` | Clustering upsert (`submitReport`: geohash-8 cell + 8 neighbours, same category, Firestore transaction), status changes, listing |
-| `src/lib/ai.ts`, `src/app/api/analyze/route.ts` | Gemini analysis of photo + optional notes (11 categories incl. default `NOT_DETECTED`) with structured JSON output and mock fallback |
+| `src/lib/ai.ts`, `src/app/api/analyze/route.ts` | Gemini analysis of photo + optional notes: category (11 incl. default `NOT_DETECTED`), title, formal letter, AI danger level 1–5 with reason; structured JSON output and mock fallback |
+| `src/lib/geocode.ts`, `src/app/api/geocode/` | Approximate address via OpenStreetMap Nominatim (cached, ≤ 1 request/s) |
+| `src/app/api/stats/`, `src/app/api/tickets/[id]/resolution/` | Dashboard statistics; resolving a ticket with an after-repair photo and note |
+| `src/components/resident/i18n.ts` | Resident UI dictionary (PL/EN/UK) and language hook |
+| `scripts/seed-images/` | Wikimedia Commons demo photos (see `docs/ATTRIBUTION.md`) |
 | `src/lib/storage.ts`, `src/app/api/images/` | Photo upload to the private bucket and proxy for serving photos |
 | `scripts/` | Clustering check and demo seed against the configured project |
 | `next.config.ts` | Next.js config with standalone output for Cloud Run |

@@ -2,7 +2,8 @@ import { FieldValue, Timestamp } from "@google-cloud/firestore";
 import ngeohash from "ngeohash";
 import { db } from "./firestore";
 import { imageUrl } from "./storage";
-import type { Analysis, LocationSource, MyReport, SubmitResult, Ticket, TicketStatus } from "./types";
+import type { Analysis, Category, LocationSource, MyReport, Stats, SubmitResult, Ticket, TicketStatus } from "./types";
+import { CATEGORIES, STATUSES } from "./types";
 
 // 8 characters ≈ 38 m × 19 m cell.
 export const GEOHASH_PRECISION = 8;
@@ -20,6 +21,7 @@ export type ReportInput = Analysis & {
   locationSource?: LocationSource;
   imagePath: string;
   reporterId?: string;
+  address?: string | null;
 };
 
 function clusterId(geohash: string, category: string) {
@@ -45,6 +47,7 @@ export async function submitReport(input: ReportInput): Promise<SubmitResult> {
     ticket_id: ticketId,
     title: input.title,
     category: input.category,
+    address: input.address ?? null,
     image_path: input.imagePath,
     gps_lat: input.lat,
     gps_lng: input.lng,
@@ -63,8 +66,11 @@ export async function submitReport(input: ReportInput): Promise<SubmitResult> {
       const nearest = candidates.reduce((best, doc) =>
         distanceSq(input, doc) < distanceSq(input, best) ? doc : best,
       );
+      // Keep the highest AI danger assessment seen for this place.
+      const higherDanger = input.danger_level > ((nearest.get("danger_level") as number | undefined) ?? 0);
       tx.update(nearest.ref, {
         severity_score: FieldValue.increment(1),
+        ...(higherDanger ? { danger_level: input.danger_level, danger_reason: input.danger_reason } : {}),
         updated_at: FieldValue.serverTimestamp(),
       });
       tx.create(nearest.ref.collection("images").doc(), image);
@@ -85,6 +91,9 @@ export async function submitReport(input: ReportInput): Promise<SubmitResult> {
       gps_lat: input.lat,
       gps_lng: input.lng,
       location_source: input.locationSource,
+      address: input.address ?? null,
+      danger_level: input.danger_level,
+      danger_reason: input.danger_reason,
       status: "OPEN",
       severity_score: 1,
       image_path: input.imagePath,
@@ -103,7 +112,11 @@ function distanceSq(point: { lat: number; lng: number }, doc: FirebaseFirestore.
 }
 
 /** Moves a ticket out of (or within) the workflow; leaving OPEN releases its cluster. */
-export async function setTicketStatus(id: string, status: TicketStatus): Promise<void> {
+export async function setTicketStatus(
+  id: string,
+  status: TicketStatus,
+  resolution?: { imagePath?: string; note?: string },
+): Promise<void> {
   const ticketRef = tickets.doc(id);
   await db.runTransaction(async (tx) => {
     const ticket = await tx.get(ticketRef);
@@ -115,7 +128,14 @@ export async function setTicketStatus(id: string, status: TicketStatus): Promise
     const stamp = status === "IN_PROGRESS" ? { in_progress_at: FieldValue.serverTimestamp() }
       : status === "RESOLVED" ? { resolved_at: FieldValue.serverTimestamp() }
       : {};
-    tx.update(ticketRef, { status, ...stamp, updated_at: FieldValue.serverTimestamp() });
+    const proof =
+      status === "RESOLVED" && resolution
+        ? {
+            ...(resolution.imagePath ? { resolution_image_path: resolution.imagePath } : {}),
+            ...(resolution.note ? { resolved_note: resolution.note } : {}),
+          }
+        : {};
+    tx.update(ticketRef, { status, ...stamp, ...proof, updated_at: FieldValue.serverTimestamp() });
     if (status !== "OPEN" && cluster.get("ticket_id") === id) {
       tx.delete(clusterRef);
     }
@@ -150,6 +170,9 @@ export async function listMyReports(reporterId: string): Promise<MyReport[]> {
         category: doc.get("category"),
         image_url: imageUrl(doc.get("image_path")),
         created_at: iso(doc.get("created_at")),
+        address: doc.get("address") ?? ticket.address ?? undefined,
+        resolution_image_url: ticket.resolution_image_path ? imageUrl(ticket.resolution_image_path) : undefined,
+        resolved_note: ticket.resolved_note,
         status: ticket.status,
         severity_score: ticket.severity_score,
         in_progress_at: optionalIso(ticket.in_progress_at),
@@ -159,13 +182,66 @@ export async function listMyReports(reporterId: string): Promise<MyReport[]> {
   });
 }
 
-/** Removes all tickets, clusters, and submissions; used to reset demo data. */
-export async function deleteAllTickets(): Promise<void> {
-  await Promise.all([
-    db.recursiveDelete(tickets),
-    db.recursiveDelete(openClusters),
-    db.recursiveDelete(reports),
+/** Aggregates for the dashboard; data volumes are small, so this reads whole collections. */
+export async function computeStats(days = 14): Promise<Stats> {
+  const since = new Date(Date.now() - days * 86_400_000);
+  const [ticketSnap, recentReports] = await Promise.all([
+    tickets.get(),
+    reports.where("created_at", ">=", since).get(),
   ]);
+  const all = ticketSnap.docs.map((d) => toTicket(d.id, d.data()));
+
+  const by_status = Object.fromEntries(STATUSES.map((s) => [s, 0])) as Record<TicketStatus, number>;
+  const perCategory = new Map<Category, { tickets: number; reports: number }>();
+  let resolvedHours = 0;
+  let resolvedCount = 0;
+  for (const t of all) {
+    by_status[t.status] += 1;
+    const c = perCategory.get(t.category) ?? { tickets: 0, reports: 0 };
+    c.tickets += 1;
+    c.reports += t.severity_score;
+    perCategory.set(t.category, c);
+    if (t.status === "RESOLVED" && t.resolved_at) {
+      resolvedHours += (Date.parse(t.resolved_at) - Date.parse(t.created_at)) / 3_600_000;
+      resolvedCount += 1;
+    }
+  }
+
+  const daily = new Map<string, number>();
+  for (let i = days - 1; i >= 0; i--) daily.set(new Date(Date.now() - i * 86_400_000).toISOString().slice(0, 10), 0);
+  for (const r of recentReports.docs) {
+    const day = iso(r.get("created_at")).slice(0, 10);
+    if (daily.has(day)) daily.set(day, daily.get(day)! + 1);
+  }
+
+  return {
+    by_status,
+    by_category: CATEGORIES.filter((c) => perCategory.has(c))
+      .map((category) => ({ category, ...perCategory.get(category)! }))
+      .sort((a, b) => b.reports - a.reports),
+    daily_reports: [...daily].map(([date, count]) => ({ date, count })),
+    avg_resolution_hours: resolvedCount ? resolvedHours / resolvedCount : null,
+    resolved_count: resolvedCount,
+    total_reports: all.reduce((sum, t) => sum + t.severity_score, 0),
+    top_danger: all
+      .filter((t) => t.status !== "RESOLVED")
+      .sort((a, b) => b.danger_level - a.danger_level || b.severity_score - a.severity_score)
+      .slice(0, 5)
+      .map(({ id, title, danger_level, severity_score, address }) => ({ id, title, danger_level, severity_score, address })),
+  };
+}
+
+/** Removes demo tickets (photos under "seed/") with their clusters and submissions; real reports stay. */
+export async function deleteSeedTickets(): Promise<number> {
+  const snapshot = await tickets.where("image_path", ">=", "seed/").where("image_path", "<", "seed0").get();
+  for (const doc of snapshot.docs) {
+    const cluster = openClusters.doc(clusterId(doc.get("geohash"), doc.get("category")));
+    if ((await cluster.get()).get("ticket_id") === doc.id) await cluster.delete();
+    const submissions = await reports.where("ticket_id", "==", doc.id).get();
+    await Promise.all(submissions.docs.map((d) => d.ref.delete()));
+    await db.recursiveDelete(doc.ref);
+  }
+  return snapshot.size;
 }
 
 export async function listTicketImages(id: string): Promise<string[]> {
@@ -199,6 +275,11 @@ function toTicket(id: string, data: FirebaseFirestore.DocumentData): Ticket {
     status: data.status,
     severity_score: data.severity_score,
     location_source: data.location_source,
+    address: data.address ?? undefined,
+    danger_level: data.danger_level ?? 1,
+    danger_reason: data.danger_reason,
+    resolution_image_url: data.resolution_image_path ? imageUrl(data.resolution_image_path) : undefined,
+    resolved_note: data.resolved_note,
     in_progress_at: optionalIso(data.in_progress_at),
     resolved_at: optionalIso(data.resolved_at),
     image_url: imageUrl(data.image_path),

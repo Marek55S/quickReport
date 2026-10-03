@@ -1,0 +1,56 @@
+{
+  "pothole-deep": {
+    "title": "A pothole in Dilova Street in Kyiv.jpg",
+    "author": "Роман Рябенко",
+    "license": "CC0",
+    "source": "https://commons.wikimedia.org/wiki/File:A_pothole_in_Dilova_Street_in_Kyiv.jpg"
+  },
+  "pavement": {
+    "title": "Damaged sidewalk in Poland, beschädigte Gehweg Pflastersteine.jpg",
+    "author": "Marek Ślusarczyk (Tupungato) Photo portfolio",
+    "license": "CC BY 3.0",
+    "source": "https://commons.wikimedia.org/wiki/File:Damaged_sidewalk_in_Poland,_besch%C3%A4digte_Gehweg_Pflastersteine.jpg"
+  },
+  "shelter": {
+    "title": "Smashed bus shelter on Wimborne Road - geograph.org.uk - 4341756.jpg",
+    "author": "David Lally",
+    "license": "CC BY-SA 2.0",
+    "source": "https://commons.wikimedia.org/wiki/File:Smashed_bus_shelter_on_Wimborne_Road_-_geograph.org.uk_-_4341756.jpg"
+  },
+  "shelter-2": {
+    "title": "Cooper Lane, Bradford - geograph.org.uk - 386346.jpg",
+    "author": "Paul Glazzard",
+    "license": "CC BY-SA 2.0",
+    "source": "https://commons.wikimedia.org/wiki/File:Cooper_Lane,_Bradford_-_geograph.org.uk_-_386346.jpg"
+  },
+  "lamp": {
+    "title": "Broken Lamp, Roding Lane South - geograph.org.uk - 7742323.jpg",
+    "author": "Des Blenkinsopp",
+    "license": "CC BY-SA 2.0",
+    "source": "https://commons.wikimedia.org/wiki/File:Broken_Lamp,_Roding_Lane_South_-_geograph.org.uk_-_7742323.jpg"
+  },
+  "dumping": {
+    "title": "Illegal dumping at Foxbar - geograph.org.uk - 214954.jpg",
+    "author": "John Allan",
+    "license": "CC BY-SA 2.0",
+    "source": "https://commons.wikimedia.org/wiki/File:Illegal_dumping_at_Foxbar_-_geograph.org.uk_-_214954.jpg"
+  },
+  "sign": {
+    "title": "Damaged road sign, Ballyglass Road - geograph.org.uk - 4830971.jpg",
+    "author": "Kenneth  Allen",
+    "license": "CC BY-SA 2.0",
+    "source": "https://commons.wikimedia.org/wiki/File:Damaged_road_sign,_Ballyglass_Road_-_geograph.org.uk_-_4830971.jpg"
+  },
+  "pothole-small": {
+    "title": "Pothole on local Road in County Monaghan.jpg",
+    "author": "Computerfan0",
+    "license": "CC0",
+    "source": "https://commons.wikimedia.org/wiki/File:Pothole_on_local_Road_in_County_Monaghan.jpg"
+  },
+  "repaired": {
+    "title": "2022-12-13 12 03 34 Patched asphalt from a recently repaired water main break along Lochatong Road at its eastern intersection with Forest Lane in the Mountainview section of Ewing Township, Mercer County, New Jersey.jpg",
+    "author": "Famartin",
+    "license": "CC BY-SA 4.0",
+    "source": "https://commons.wikimedia.org/wiki/File:2022-12-13_12_03_34_Patched_asphalt_from_a_recently_repaired_water_main_break_along_Lochatong_Road_at_its_eastern_intersection_with_Forest_Lane_in_the_Mountainview_section_of_Ewing_Township,_Mercer_County,_New_Jersey.jpg"
+  }
+}

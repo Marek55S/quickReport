@@ -19,3 +19,10 @@ export function severityLabel(score: number): string {
 export function markerRadius(score: number): number {
   return Math.min(9 + score * 3, 32);
 }
+
+/** AI danger level 1–5 on the same heraldic scale. */
+export function dangerColor(level: number): string {
+  if (level >= 4) return "#e40521";
+  if (level === 3) return "#ffcc00";
+  return "#cdb794";
+}
