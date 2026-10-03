@@ -22,6 +22,32 @@ Camera and GPS on a phone require HTTPS (deployed URL or a tunnel).
 
 Shared instructions, skills, specifications, and decision records are intended to stay in version control.
 
+## Deploying to Cloud Run
+
+The `Dockerfile` builds the Next.js standalone server; `gcloud run deploy --source .` builds it with Cloud Build.
+
+One-time setup (runtime service account with the minimum roles):
+
+```bash
+PROJECT=quickreport-hy26
+SA=quickreport-run@$PROJECT.iam.gserviceaccount.com
+gcloud iam service-accounts create quickreport-run --display-name="QuickReport Cloud Run"
+gcloud projects add-iam-policy-binding $PROJECT --member=serviceAccount:$SA --role=roles/aiplatform.user
+gcloud projects add-iam-policy-binding $PROJECT --member=serviceAccount:$SA --role=roles/datastore.user
+gcloud storage buckets add-iam-policy-binding gs://$PROJECT-report-images --member=serviceAccount:$SA --role=roles/storage.objectAdmin
+```
+
+Deploy (repeat after each change):
+
+```bash
+gcloud run deploy quickreport --source . --region=europe-central2 \
+  --service-account=$SA --allow-unauthenticated \
+  --memory=1Gi --max-instances=2 \
+  --set-env-vars=GOOGLE_CLOUD_PROJECT=$PROJECT,GOOGLE_CLOUD_LOCATION=europe-west1,GCS_BUCKET=$PROJECT-report-images,GEMINI_MODEL=gemini-2.5-flash,AI_MOCK=0
+```
+
+The command prints the HTTPS service URL. `/admin` has no authentication in this prototype.
+
 ## Working with an agent
 
 Start with [AGENTS.md](AGENTS.md), which links the repository rules, architecture map, and workflow.
