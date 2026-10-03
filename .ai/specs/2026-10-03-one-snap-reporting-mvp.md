@@ -6,7 +6,7 @@
 - Created: `2026-10-03`
 - Updated: `2026-10-03`
 - Owner: `Marek55S`
-- Authorization: `2026-10-03: user approved the Google Cloud stack and Task 1 ("zacznij stawiać szkielet"). After Google Cloud setup ("gotowe") the user approved continuing with Tasks 2 and 3. After the user's commit ("zacommitowałem, rób dalej") Tasks 4–6 were approved. Task 7 (deploy and publishing) not yet authorized.`
+- Authorization: `2026-10-03: user approved the Google Cloud stack and Task 1 ("zacznij stawiać szkielet"). After Google Cloud setup ("gotowe") the user approved continuing with Tasks 2 and 3. After the user's commit ("zacommitowałem, rób dalej") Tasks 4–6 were approved. Task 7 deployment was run by the user; Claude granted the missing `roles/datastore.user` from the documented setup.`
 
 ## Goal
 
@@ -313,12 +313,12 @@ If time runs short, cut in this order: PWA manifest polish, attaching extra imag
 - Dependencies:
   - Tasks 5 and 6; submission rules.
 - Execution result:
-  - Actual files: `Not started`
+  - Actual files: `Dockerfile`, `.dockerignore`, `.gcloudignore`, `README.md` (deployment section)
   - Commits: `Not created`
-  - Validation: `Not run`
-  - Deviations: `None`
-  - Remaining work: `Not started`
-  - Next step: `Not started`
+  - Validation: Local `docker build` succeeded and the container served `/`, `/admin`, `/icon.svg` with 200. User deployed with `gcloud run deploy --source .`: revision `quickreport-00001-xvk` at https://quickreport-875960213491.europe-central2.run.app. `/`, `/admin`, manifest 200; `/api/analyze` returned a Gemini result via the service account; `/api/tickets` returned 500 until `roles/datastore.user` was granted to `quickreport-run` (the setup step had not applied), then 200; `POST /api/reports` merged into the seeded ticket (severity 8). Demo data reseeded afterwards.
+  - Deviations: A first deploy attempt was started from the home directory and was cancelled before upload; the source bucket was verified empty.
+  - Remaining work: Physical phone test over HTTPS; README project description and AI/library disclosure; PDF deck (max 10 slides).
+  - Next step: Phone test and submission material
 
 ### Stretch goals (only after Task 7)
 
