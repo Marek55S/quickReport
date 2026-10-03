@@ -5,22 +5,20 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import {
   ArrowLeft,
+  ArrowRight,
   Camera,
-  CheckCircle2,
-  ClipboardList,
+  Check,
   Image as ImageIcon,
   Loader2,
   LocateFixed,
   Map as MapIcon,
   MapPin,
-  NotebookPen,
   ScanSearch,
-  ShieldCheck,
   Sparkles,
   TriangleAlert,
-  Users,
 } from "lucide-react";
-import { CATEGORY_STYLE } from "@/components/categories";
+import { CATEGORY_ICONS } from "@/components/categories";
+import { ticketNumber, Wordmark } from "@/components/ui";
 import {
   CATEGORY_LABELS,
   DEFAULT_CATEGORY,
@@ -35,7 +33,7 @@ import { getReporterId } from "./reporter";
 
 const PickerMap = dynamic(() => import("./PickerMap"), {
   ssr: false,
-  loading: () => <div className="flex size-full items-center justify-center text-sm text-slate-400">Ładowanie mapy…</div>,
+  loading: () => <div className="flex size-full items-center justify-center text-sm text-ink-muted">Ładowanie mapy…</div>,
 });
 
 type Step = "home" | "analyzing" | "review" | "auth" | "submitting" | "done" | "error";
@@ -146,7 +144,7 @@ export default function ReportFlow() {
   }
 
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col bg-background">
+    <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col bg-paper">
       <input
         ref={cameraInput}
         type="file"
@@ -166,12 +164,17 @@ export default function ReportFlow() {
       {step === "home" && <Home onStart={startReport} />}
 
       {step === "analyzing" && (
-        <Centered>
-          {photo && <PhotoPreview url={photo.url} />}
-          <Loader2 className="mx-auto mt-8 size-10 animate-spin text-brand" />
-          <h2 className="mt-4 text-xl font-semibold">Analizuję zdjęcie…</h2>
-          <p className="mt-1 text-slate-600">AI rozpoznaje problem i przygotowuje pismo do urzędu.</p>
-        </Centered>
+        <div className="flex flex-1 flex-col">
+          <TopBar title="Analiza zdjęcia" step={1} />
+          <div className="flex flex-1 flex-col px-5 pb-10">
+            {photo && <PhotoPreview url={photo.url} />}
+            <div className="mt-6 h-1.5 overflow-hidden bg-rule" role="progressbar" aria-label="Analiza zdjęcia">
+              <div className="progress-scan h-full w-2/5 bg-ink" />
+            </div>
+            <h2 className="display mt-6 text-3xl leading-none">Analizuję zdjęcie…</h2>
+            <p className="mt-2 text-ink-muted">AI rozpoznaje problem i przygotowuje pismo do urzędu. To zwykle kilka sekund.</p>
+          </div>
+        </div>
       )}
 
       {step === "review" && analysis && photo && locations && position && (
@@ -203,14 +206,14 @@ export default function ReportFlow() {
       {step === "done" && result && <Done result={result} title={analysis?.title} onAgain={reset} />}
 
       {step === "error" && (
-        <Centered>
-          <TriangleAlert className="mx-auto size-12 text-rose-500" />
-          <h2 className="mt-4 text-xl font-semibold">Nie udało się</h2>
-          <p className="mt-1 text-slate-600">{error}</p>
+        <div className="flex flex-1 flex-col justify-center px-5 py-10">
+          <TriangleAlert className="size-10 text-sev-high" aria-hidden />
+          <h2 className="display mt-4 text-3xl leading-none">Nie udało się</h2>
+          <p className="mt-2 text-ink-muted">{error}</p>
           <button onClick={reset} className="btn-primary mt-8">
             Spróbuj ponownie
           </button>
-        </Centered>
+        </div>
       )}
     </main>
   );
@@ -218,54 +221,54 @@ export default function ReportFlow() {
 
 function Home({ onStart }: { onStart: (source: "camera" | "gallery") => void }) {
   const steps = [
-    { icon: Camera, text: "Zrób zdjęcie usterki lub bariery" },
-    { icon: Sparkles, text: "AI rozpozna problem i napisze oficjalne zgłoszenie" },
-    { icon: ShieldCheck, text: "Potwierdź przez mObywatel – gotowe" },
+    "Zrób zdjęcie usterki lub bariery.",
+    "AI rozpozna problem i napisze oficjalne pismo do urzędu.",
+    "Sprawdź, potwierdź przez mObywatel i gotowe.",
   ];
   return (
-    <div className="flex flex-1 flex-col">
-      <section className="rounded-b-[2rem] bg-gradient-to-br from-brand to-brand-dark px-6 pb-10 pt-[max(3rem,env(safe-area-inset-top))] text-white">
-        <div className="flex items-center justify-between">
-          <p className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-blue-200">
-            <MapPin className="size-4" /> QuickReport
-          </p>
-          <Link
-            href="/moje-zgloszenia"
-            className="flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1.5 text-sm font-medium text-white"
-          >
-            <ClipboardList className="size-4" /> Moje zgłoszenia
-          </Link>
-        </div>
-        <h1 className="mt-4 text-3xl font-bold leading-tight">Widzisz problem w mieście? Zgłoś go jednym zdjęciem.</h1>
-        <p className="mt-3 text-blue-100">Bez formularzy i szukania właściwego wydziału.</p>
+    <div className="flex flex-1 flex-col px-5 pt-[max(1.25rem,env(safe-area-inset-top))]">
+      <header className="flex items-center justify-between">
+        <Wordmark />
+        <Link
+          href="/moje-zgloszenia"
+          className="flex items-center gap-1 font-display text-[15px] font-semibold uppercase tracking-[0.04em] underline-offset-4 hover:underline"
+        >
+          Moje zgłoszenia <ArrowRight className="size-4" aria-hidden />
+        </Link>
+      </header>
+
+      <section className="mt-10">
+        <h1 className="display text-[3.4rem] leading-[0.9]">
+          Zgłoś
+          <br />
+          problem
+          <br />
+          w mieście.
+        </h1>
+        <div className="mt-5 h-2 w-16 bg-signal" aria-hidden />
+        <p className="mt-5 text-lg leading-snug text-ink-muted">
+          Jedno zdjęcie wystarczy. Bez formularzy i szukania właściwego wydziału.
+        </p>
       </section>
 
-      <ol className="space-y-4 px-6 py-8">
-        {steps.map(({ icon: Icon, text }, i) => (
-          <li key={text} className="flex items-center gap-4">
-            <span className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-blue-50 text-brand">
-              <Icon className="size-5" />
-            </span>
-            <span className="text-slate-700">
-              <span className="font-semibold text-slate-900">{i + 1}. </span>
-              {text}
-            </span>
+      <ol className="mt-8 border-t border-rule">
+        {steps.map((text, i) => (
+          <li key={text} className="flex items-baseline gap-4 border-b border-rule py-3.5">
+            <span className="display w-6 shrink-0 text-2xl leading-none tabular-nums">{i + 1}</span>
+            <span className="leading-snug">{text}</span>
           </li>
         ))}
       </ol>
 
-      <div className="mt-auto px-6 pb-[max(2rem,env(safe-area-inset-bottom))]">
-        <button onClick={() => onStart("camera")} className="btn-primary flex items-center justify-center gap-3 py-5 text-lg">
-          <Camera className="size-6" /> Zgłoś problem
+      <div className="mt-auto pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-8">
+        <button onClick={() => onStart("camera")} className="btn-primary py-5 text-xl">
+          <Camera className="size-6" aria-hidden /> Zgłoś problem
         </button>
-        <button
-          onClick={() => onStart("gallery")}
-          className="mt-3 flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white py-3.5 font-medium text-slate-700"
-        >
-          <ImageIcon className="size-5" /> Wybierz zdjęcie z galerii
+        <button onClick={() => onStart("gallery")} className="btn-secondary mt-3">
+          <ImageIcon className="size-5" aria-hidden /> Wybierz zdjęcie z galerii
         </button>
-        <p className="mt-3 text-center text-xs text-slate-500">
-          Zdjęcia z tego samego miejsca łączymy w jedno zgłoszenie – im więcej osób, tym wyższy priorytet.
+        <p className="mt-4 text-sm leading-snug text-ink-muted">
+          Zgłoszenia z tego samego miejsca łączymy w jedno – im więcej osób, tym wyższy priorytet w urzędzie.
         </p>
       </div>
     </div>
@@ -298,63 +301,80 @@ function Review(props: {
 
   return (
     <div className="flex flex-1 flex-col">
-      <TopBar title="Sprawdź zgłoszenie" onBack={props.onBack} />
-      <div className="flex-1 space-y-5 px-5 pb-6">
-        <PhotoPreview url={props.photoUrl} />
-
-        <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2.5 py-1 text-xs font-medium text-brand">
-          <Sparkles className="size-3.5" />
-          {props.aiSource === "ai" ? "Wygenerowane przez AI" : "Tryb demo (AI niedostępne)"}
-        </span>
+      <TopBar title="Sprawdź zgłoszenie" step={2} onBack={props.onBack} />
+      <div className="flex-1 px-5 pb-6">
+        <div className="relative">
+          <PhotoPreview url={props.photoUrl} />
+          <span className="tag absolute left-2 top-2 border-ink bg-paper text-ink">
+            <Sparkles className="size-3" aria-hidden />
+            {props.aiSource === "ai" ? "Opis przygotowało AI" : "Tryb demo – AI niedostępne"}
+          </span>
+        </div>
 
         {notDetected && (
-          <div className="rounded-2xl bg-amber-50 p-4 text-amber-900">
-            <p className="flex items-center gap-2 font-semibold">
-              <ScanSearch className="size-5" /> Nie rozpoznaliśmy problemu na zdjęciu
+          <div className="mt-5 border-l-4 border-sev-mid bg-warn-bg px-4 py-3" role="status">
+            <p className="flex items-center gap-2 font-display text-lg font-bold uppercase tracking-[0.02em]">
+              <ScanSearch className="size-5" aria-hidden /> Nie rozpoznaliśmy problemu na zdjęciu
             </p>
-            <p className="mt-1 text-sm">Opisz go własnymi słowami – AI przygotuje zgłoszenie na tej podstawie. Możesz też wybrać kategorię ręcznie.</p>
+            <p className="mt-1 text-[15px] leading-snug">
+              Opisz go własnymi słowami – AI przygotuje zgłoszenie na tej podstawie. Możesz też wybrać kategorię ręcznie.
+            </p>
           </div>
         )}
-        {notDetected && notesSection}
+        {notDetected && <Section>{notesSection}</Section>}
 
-        <CategoryPicker
-          value={analysis.category}
-          onChange={(category) => onChange({ ...analysis, category })}
-          forceOpen={notDetected}
-        />
-
-        <label className="block">
-          <span className="label">Tytuł</span>
-          <input
-            value={analysis.title}
-            onChange={(e) => onChange({ ...analysis, title: e.target.value })}
-            className="input mt-2"
+        <Section>
+          <CategoryPicker
+            value={analysis.category}
+            onChange={(category) => onChange({ ...analysis, category })}
+            forceOpen={notDetected}
           />
-        </label>
+        </Section>
 
-        <label className="block">
-          <span className="label">Treść zgłoszenia do urzędu</span>
-          <textarea
-            value={analysis.formal_report}
-            onChange={(e) => onChange({ ...analysis, formal_report: e.target.value })}
-            rows={8}
-            className="input mt-2 field-sizing-content min-h-40 text-sm leading-relaxed"
-          />
-          <span className="mt-1 block text-xs text-slate-500">Lokalizację i datę system dopisze automatycznie.</span>
-        </label>
+        <Section>
+          <label className="block">
+            <span className="label">Tytuł</span>
+            <input
+              value={analysis.title}
+              onChange={(e) => onChange({ ...analysis, title: e.target.value })}
+              className="input mt-2 text-lg font-medium"
+            />
+          </label>
+        </Section>
 
-        <LocationSection {...props} />
+        <Section>
+          <label className="block">
+            <span className="label">Treść pisma do urzędu</span>
+            <textarea
+              value={analysis.formal_report}
+              onChange={(e) => onChange({ ...analysis, formal_report: e.target.value })}
+              rows={8}
+              className="input mt-2 field-sizing-content min-h-40 border-l-4 border-l-ink text-[15px] leading-relaxed"
+            />
+            <span className="mt-1.5 block text-sm text-ink-muted">Lokalizację i datę system dopisze automatycznie.</span>
+          </label>
+        </Section>
 
-        {!notDetected && notesSection}
+        <Section>
+          <LocationSection {...props} />
+        </Section>
+
+        {!notDetected && <Section>{notesSection}</Section>}
       </div>
-      <div className="sticky bottom-0 border-t border-slate-200 bg-white/95 px-5 py-4 backdrop-blur pb-[max(1rem,env(safe-area-inset-bottom))]">
-        {notDetected && <p className="mb-2 text-center text-xs text-amber-700">Dodaj opis lub wybierz kategorię, aby wysłać.</p>}
+      <div className="sticky bottom-0 border-t-2 border-ink bg-paper px-5 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+        {notDetected && (
+          <p className="mb-2 text-sm font-medium text-warn-ink">Dodaj opis lub wybierz kategorię, aby wysłać.</p>
+        )}
         <button onClick={props.onNext} disabled={!canSend} className="btn-primary">
-          Dalej – potwierdź i wyślij
+          Dalej – potwierdź i wyślij <ArrowRight className="size-5" aria-hidden />
         </button>
       </div>
     </div>
   );
+}
+
+function Section({ children }: { children: React.ReactNode }) {
+  return <div className="mt-5 border-t border-rule pt-4">{children}</div>;
 }
 
 /** Shows the AI-chosen category compactly; the full list opens only when the resident wants to change it. */
@@ -362,31 +382,31 @@ function CategoryPicker(props: { value: Category; onChange: (c: Category) => voi
   const [open, setOpen] = useState(false);
   const expanded = open || props.forceOpen;
   const selected = props.value === DEFAULT_CATEGORY ? null : props.value;
-  const SelectedIcon = selected ? CATEGORY_STYLE[selected].icon : null;
+  const SelectedIcon = selected ? CATEGORY_ICONS[selected] : null;
 
   return (
     <fieldset>
       <legend className="label">Kategoria</legend>
       {selected && SelectedIcon && (
-        <div className="mt-2 flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-3 py-2.5">
-          <span className={`flex size-9 shrink-0 items-center justify-center rounded-lg ${CATEGORY_STYLE[selected].chip}`}>
+        <div className="mt-2 flex items-center gap-3">
+          <span className="flex size-10 shrink-0 items-center justify-center rounded-[4px] bg-ink text-paper">
             <SelectedIcon className="size-5" aria-hidden />
           </span>
-          <span className="flex-1 font-medium">{CATEGORY_LABELS[selected]}</span>
+          <span className="min-w-0 flex-1 text-lg font-medium leading-tight">{CATEGORY_LABELS[selected]}</span>
           <button
             type="button"
             onClick={() => setOpen(!open)}
             aria-expanded={expanded}
-            className="rounded-lg px-2 py-1 text-sm font-semibold text-brand hover:bg-blue-50"
+            className="shrink-0 px-1 font-display text-[15px] font-semibold uppercase tracking-[0.04em] underline underline-offset-4"
           >
             {expanded ? "Zwiń" : "Zmień"}
           </button>
         </div>
       )}
       {expanded && (
-        <div className="mt-2 grid grid-cols-2 gap-2">
+        <div className="mt-3 grid grid-cols-2 gap-1.5">
           {REPORTABLE_CATEGORIES.map((c) => {
-            const { icon: Icon } = CATEGORY_STYLE[c];
+            const Icon = CATEGORY_ICONS[c];
             const active = props.value === c;
             return (
               <button
@@ -397,8 +417,8 @@ function CategoryPicker(props: { value: Category; onChange: (c: Category) => voi
                   props.onChange(c);
                   setOpen(false);
                 }}
-                className={`flex items-center gap-2 rounded-xl border px-3 py-2.5 text-left text-sm transition ${
-                  active ? "border-brand bg-blue-50 font-semibold text-brand" : "border-slate-200 bg-white text-slate-700"
+                className={`flex items-center gap-2 rounded-[4px] border px-2.5 py-2 text-left text-[15px] leading-tight transition-colors ${
+                  active ? "border-ink bg-ink text-paper" : "border-rule bg-white hover:border-ink"
                 }`}
               >
                 <Icon className="size-4 shrink-0" aria-hidden />
@@ -435,23 +455,26 @@ function LocationSection(props: {
   return (
     <section>
       <p className="label">Lokalizacja</p>
-      <div className={`mt-2 grid gap-1 rounded-xl bg-slate-100 p-1 ${visible.length === 3 ? "grid-cols-3" : "grid-cols-2"}`}>
-        {visible.map(({ id, label, icon: Icon }) => (
+      <div
+        className={`mt-2 grid overflow-hidden rounded-[4px] border-2 border-ink ${visible.length === 3 ? "grid-cols-3" : "grid-cols-2"}`}
+      >
+        {visible.map(({ id, label, icon: Icon }, i) => (
           <button
             key={id}
             type="button"
+            aria-pressed={locationChoice === id}
             onClick={() => props.onLocationChoice(id)}
-            className={`flex items-center justify-center gap-1.5 rounded-lg px-2 py-2 text-sm transition ${
-              locationChoice === id ? "bg-white font-semibold text-brand shadow-sm" : "text-slate-600"
-            }`}
+            className={`flex items-center justify-center gap-1.5 px-2 py-2.5 font-display text-[15px] font-semibold uppercase tracking-[0.03em] transition-colors ${
+              i > 0 ? "border-l-2 border-ink" : ""
+            } ${locationChoice === id ? "bg-ink text-paper" : "bg-white text-ink hover:bg-signal"}`}
           >
-            <Icon className="size-4" /> {label}
+            <Icon className="size-4 shrink-0" aria-hidden /> {label}
           </button>
         ))}
       </div>
 
       {locationChoice === "map" && (
-        <div className="mt-2 h-56 overflow-hidden rounded-xl border border-slate-200">
+        <div className="mt-2 h-56 overflow-hidden rounded-[4px] border border-ink/40">
           <PickerMap
             value={locations.map ?? locations.exif ?? locations.device}
             reference={locations.device}
@@ -460,13 +483,18 @@ function LocationSection(props: {
         </div>
       )}
 
-      <p className="mt-2 flex items-center gap-1.5 text-xs text-slate-600">
-        <MapPin className="size-3.5 shrink-0" />
-        {locationChoice === "map" && !locations.map
-          ? "Dotknij mapy, aby wskazać miejsce problemu."
-          : position.source === "demo"
-            ? "Brak dostępu do lokalizacji – użyto lokalizacji demonstracyjnej."
-            : `${position.lat.toFixed(5)}, ${position.lng.toFixed(5)}${position.accuracy ? ` (±${Math.round(position.accuracy)} m)` : ""}`}
+      <p className="mt-2 flex items-center gap-1.5 text-sm text-ink-muted">
+        <MapPin className="size-4 shrink-0" aria-hidden />
+        {locationChoice === "map" && !locations.map ? (
+          "Dotknij mapy, aby wskazać miejsce problemu."
+        ) : position.source === "demo" ? (
+          "Brak dostępu do lokalizacji – użyto lokalizacji demonstracyjnej."
+        ) : (
+          <span className="font-mono text-[13px]">
+            {position.lat.toFixed(5)}, {position.lng.toFixed(5)}
+            {position.accuracy ? ` · ±${Math.round(position.accuracy)} m` : ""}
+          </span>
+        )}
       </p>
     </section>
   );
@@ -502,11 +530,9 @@ function NotesSection(props: {
   }
 
   return (
-    <section className={props.highlight ? "rounded-2xl border-2 border-amber-300 bg-white p-3" : undefined}>
+    <section>
       <label className="block">
-        <span className="label flex items-center gap-1.5">
-          <NotebookPen className="size-3.5" /> Twój opis {props.highlight ? "" : "(opcjonalnie)"}
-        </span>
+        <span className="label">{props.highlight ? "Twój opis problemu" : "Twój opis (opcjonalnie)"}</span>
         <textarea
           value={props.notes}
           onChange={(e) => {
@@ -516,33 +542,30 @@ function NotesSection(props: {
           maxLength={NOTES_MAX_LENGTH}
           rows={3}
           placeholder="Np. dziura jest tu od tygodnia, wieczorem jej nie widać, wpadł w nią rowerzysta"
-          className="input mt-2 text-sm"
+          className={`input mt-2 text-[15px] ${props.highlight ? "border-2 border-ink" : ""}`}
         />
       </label>
-      <button
-        type="button"
-        onClick={run}
-        disabled={busy || !props.notes.trim()}
-        className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl border border-brand px-3 py-2.5 text-sm font-semibold text-brand disabled:opacity-40"
-      >
-        {busy ? <Loader2 className="size-4 animate-spin" /> : <Sparkles className="size-4" />}
+      <button type="button" onClick={run} disabled={busy || !props.notes.trim()} className="btn-secondary mt-2 py-2.5">
+        {busy ? <Loader2 className="size-4 animate-spin" aria-hidden /> : <Sparkles className="size-4" aria-hidden />}
         {busy ? "Generuję zgłoszenie…" : "Uwzględnij opis w zgłoszeniu"}
       </button>
       <div ref={feedback}>
         {outcome === "updated" && (
-          <p role="status" className="mt-2 flex items-start gap-1.5 text-xs text-emerald-700">
-            <CheckCircle2 className="mt-px size-3.5 shrink-0" /> Zaktualizowano zgłoszenie na podstawie Twojego opisu.
+          <p role="status" className="mt-2 flex items-start gap-1.5 text-sm font-medium text-ok">
+            <Check className="mt-0.5 size-4 shrink-0" aria-hidden /> Zaktualizowano zgłoszenie na podstawie Twojego opisu.
           </p>
         )}
         {outcome === "ignored" && (
-          <p role="status" className="mt-2 flex items-start gap-1.5 rounded-lg bg-amber-50 p-2 text-xs text-amber-800">
-            <TriangleAlert className="mt-px size-3.5 shrink-0" />
-            Opis nie dotyczy zgłaszanego problemu, więc treść zgłoszenia nie została zmieniona. Opisz, co jest nie tak w tym
-            miejscu.
+          <p role="status" className="mt-2 flex items-start gap-1.5 border-l-4 border-sev-mid bg-warn-bg px-3 py-2 text-sm">
+            <TriangleAlert className="mt-0.5 size-4 shrink-0 text-warn-ink" aria-hidden />
+            Opis nie dotyczy zgłaszanego problemu, więc treść zgłoszenia nie została zmieniona. Opisz, co jest nie tak w
+            tym miejscu.
           </p>
         )}
         {outcome === "failed" && (
-          <p role="alert" className="mt-2 text-xs text-rose-600">Nie udało się wygenerować zgłoszenia. Spróbuj ponownie.</p>
+          <p role="alert" className="mt-2 text-sm font-medium text-sev-high">
+            Nie udało się wygenerować zgłoszenia. Spróbuj ponownie.
+          </p>
         )}
       </div>
     </section>
@@ -552,39 +575,26 @@ function NotesSection(props: {
 function AuthMock({ busy, onBack, onConfirm }: { busy: boolean; onBack: () => void; onConfirm: () => void }) {
   return (
     <div className="flex flex-1 flex-col">
-      <TopBar title="Potwierdzenie tożsamości" onBack={busy ? undefined : onBack} />
-      <div className="flex flex-1 flex-col px-5">
-        <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-          <div className="flex items-center gap-3">
-            <span className="flex size-12 items-center justify-center rounded-2xl bg-rose-600 text-white">
-              <ShieldCheck className="size-6" />
-            </span>
-            <div>
-              <p className="text-lg font-semibold">mObywatel</p>
-              <p className="text-xs text-slate-500">Symulacja logowania (prototyp)</p>
-            </div>
+      <TopBar title="Potwierdzenie tożsamości" step={3} onBack={busy ? undefined : onBack} />
+      <div className="flex flex-1 flex-col px-5 pt-6">
+        <p className="label">Logowanie przez mObywatel · symulacja w prototypie</p>
+        <h2 className="display mt-2 text-3xl leading-none">Potwierdź, że to Ty</h2>
+        <p className="mt-3 leading-snug text-ink-muted">
+          Urząd przyjmie zgłoszenie jako oficjalne pismo podpisane Twoimi danymi.
+        </p>
+        <dl className="mt-6 border-y border-rule">
+          <div className="flex justify-between border-b border-rule py-3">
+            <dt className="text-ink-muted">Imię i nazwisko</dt>
+            <dd className="font-medium">Jan Kowalski</dd>
           </div>
-          <p className="mt-5 text-slate-700">
-            Urząd przyjmie zgłoszenie jako oficjalne pismo. Potwierdź, że zgłaszasz je Ty:
-          </p>
-          <dl className="mt-4 space-y-2 rounded-2xl bg-slate-50 p-4 text-sm">
-            <div className="flex justify-between">
-              <dt className="text-slate-500">Imię i nazwisko</dt>
-              <dd className="font-medium">Jan Kowalski</dd>
-            </div>
-            <div className="flex justify-between">
-              <dt className="text-slate-500">PESEL</dt>
-              <dd className="font-mono">•••••••1234</dd>
-            </div>
-          </dl>
-        </div>
-        <div className="mt-auto pb-[max(2rem,env(safe-area-inset-bottom))] pt-6">
-          <button
-            onClick={onConfirm}
-            disabled={busy}
-            className="flex w-full items-center justify-center gap-2 rounded-2xl bg-rose-600 py-4 font-semibold text-white shadow-lg shadow-rose-900/20 disabled:opacity-70"
-          >
-            {busy ? <Loader2 className="size-5 animate-spin" /> : <ShieldCheck className="size-5" />}
+          <div className="flex justify-between py-3">
+            <dt className="text-ink-muted">PESEL</dt>
+            <dd className="font-mono">•••••••1234</dd>
+          </div>
+        </dl>
+        <div className="mt-auto pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-6">
+          <button onClick={onConfirm} disabled={busy} className="btn-ink">
+            {busy ? <Loader2 className="size-5 animate-spin" aria-hidden /> : <Check className="size-5" aria-hidden />}
             {busy ? "Wysyłanie zgłoszenia…" : "Potwierdź w mObywatel i wyślij"}
           </button>
         </div>
@@ -595,40 +605,52 @@ function AuthMock({ busy, onBack, onConfirm }: { busy: boolean; onBack: () => vo
 
 function Done({ result, title, onAgain }: { result: SubmitResult; title?: string; onAgain: () => void }) {
   return (
-    <Centered>
-      <CheckCircle2 className="mx-auto size-16 text-emerald-500" />
-      <h2 className="mt-4 text-2xl font-bold">Zgłoszenie wysłane</h2>
-      {title && <p className="mt-1 text-slate-600">{title}</p>}
+    <div className="flex flex-1 flex-col px-5 pt-[max(1.25rem,env(safe-area-inset-top))]">
+      <Wordmark />
+      <div className="mt-10">
+        <span className="flex size-12 items-center justify-center rounded-[4px] bg-ok text-white">
+          <Check className="size-7" aria-hidden />
+        </span>
+        <h2 className="display mt-5 text-[2.8rem] leading-[0.95]">Zgłoszenie wysłane</h2>
+        {title && <p className="mt-2 text-lg text-ink-muted">{title}</p>}
+      </div>
 
-      {result.merged ? (
-        <div className="mt-6 rounded-2xl bg-amber-50 p-5 text-left text-amber-900">
-          <p className="flex items-center gap-2 font-semibold">
-            <Users className="size-5" /> {reportersText(result.severity_score)}
-          </p>
-          <p className="mt-1 text-sm">
-            Dołączyliśmy Twoje zdjęcie do istniejącego zgłoszenia i podnieśliśmy jego priorytet w urzędzie.
-          </p>
+      {/* Receipt-style summary with the reference number. */}
+      <dl className="mt-8 border-y-2 border-ink">
+        <div className="flex items-baseline justify-between border-b border-rule py-3">
+          <dt className="label">Numer zgłoszenia</dt>
+          <dd className="font-mono text-lg font-medium" data-ticket-id={result.ticketId}>
+            {ticketNumber(result.ticketId)}
+          </dd>
         </div>
-      ) : (
-        <div className="mt-6 rounded-2xl bg-emerald-50 p-5 text-left text-emerald-900">
-          <p className="font-semibold">Jesteś pierwszą osobą, która to zgłosiła</p>
-          <p className="mt-1 text-sm">Urząd otrzymał nowe zgłoszenie z Twoim zdjęciem i lokalizacją.</p>
+        <div className="flex items-center justify-between gap-4 py-3">
+          <dt className="label">Zgłosili ten problem</dt>
+          <dd className="display text-4xl leading-none tabular-nums">{result.severity_score}</dd>
         </div>
-      )}
-      <p className="mt-4 text-xs text-slate-500">
-        Numer zgłoszenia: <span className="font-mono">{result.ticketId}</span>
+      </dl>
+      <p className="mt-4 leading-snug">
+        {result.merged ? (
+          <>
+            <strong>{reportersText(result.severity_score)}.</strong> Dołączyliśmy Twoje zdjęcie do istniejącego zgłoszenia
+            i podnieśliśmy jego priorytet w urzędzie.
+          </>
+        ) : (
+          <>
+            <strong>Jesteś pierwszą osobą, która to zgłosiła.</strong> Urząd otrzymał nowe zgłoszenie z Twoim zdjęciem i
+            lokalizacją.
+          </>
+        )}
       </p>
 
-      <Link
-        href="/moje-zgloszenia"
-        className="mt-8 flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white py-3.5 font-medium text-slate-700"
-      >
-        <ClipboardList className="size-5" /> Śledź status w „Moich zgłoszeniach”
-      </Link>
-      <button onClick={onAgain} className="btn-primary mt-3">
-        Zgłoś kolejny problem
-      </button>
-    </Centered>
+      <div className="mt-auto space-y-3 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-8">
+        <Link href="/moje-zgloszenia" className="btn-secondary">
+          Śledź status w „Moich zgłoszeniach”
+        </Link>
+        <button onClick={onAgain} className="btn-primary">
+          <Camera className="size-5" aria-hidden /> Zgłoś kolejny problem
+        </button>
+      </div>
+    </div>
   );
 }
 
@@ -638,26 +660,23 @@ function reportersText(n: number) {
   return few ? `Ten problem zgłosiły już ${n} osoby` : `Ten problem zgłosiło już ${n} osób`;
 }
 
-function TopBar({ title, onBack }: { title: string; onBack?: () => void }) {
+function TopBar({ title, step, onBack }: { title: string; step?: number; onBack?: () => void }) {
   return (
-    <header className="sticky top-0 z-10 flex items-center gap-2 bg-background/95 px-3 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))] backdrop-blur">
+    <header className="sticky top-0 z-10 flex items-center gap-2 border-b border-rule bg-paper px-3 pb-2.5 pt-[max(0.75rem,env(safe-area-inset-top))]">
       {onBack ? (
-        <button onClick={onBack} aria-label="Wstecz" className="rounded-full p-2 hover:bg-slate-100">
+        <button onClick={onBack} aria-label="Wstecz" className="rounded-[4px] p-2 hover:bg-ink/5">
           <ArrowLeft className="size-5" />
         </button>
       ) : (
         <span className="size-9" />
       )}
-      <h1 className="text-lg font-semibold">{title}</h1>
+      <h1 className="display flex-1 text-xl leading-none">{title}</h1>
+      {step && <span className="font-mono text-[13px] text-ink-muted">Krok {step}/3</span>}
     </header>
   );
 }
 
-function Centered({ children }: { children: React.ReactNode }) {
-  return <div className="flex flex-1 flex-col justify-center px-6 py-10 text-center">{children}</div>;
-}
-
 function PhotoPreview({ url }: { url: string }) {
   // eslint-disable-next-line @next/next/no-img-element -- local object URL
-  return <img src={url} alt="Zdjęcie zgłoszenia" className="aspect-[4/3] w-full rounded-2xl object-cover shadow-sm" />;
+  return <img src={url} alt="Zdjęcie zgłoszenia" className="mt-4 aspect-[4/3] w-full rounded-[4px] object-cover" />;
 }

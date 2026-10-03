@@ -22,13 +22,13 @@ export default function PickerMap({ value, reference, onPick }: Props) {
         <CircleMarker
           center={[reference.lat, reference.lng]}
           radius={6}
-          pathOptions={{ color: "#fff", weight: 2, fillColor: "#64748b", fillOpacity: 0.9 }}
+          pathOptions={{ color: "#fff", weight: 2, fillColor: "#5c5a54", fillOpacity: 0.9 }}
         />
       )}
       <CircleMarker
         center={[value.lat, value.lng]}
         radius={11}
-        pathOptions={{ color: "#fff", weight: 3, fillColor: "#1d4ed8", fillOpacity: 1 }}
+        pathOptions={{ color: "#17181a", weight: 3, fillColor: "#ffcc00", fillOpacity: 1 }}
       />
       <ClickHandler onPick={onPick} />
     </MapContainer>

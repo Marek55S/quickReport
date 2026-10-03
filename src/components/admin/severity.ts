@@ -1,8 +1,13 @@
-// Visual priority scale shared by the map and the list.
+// Visual priority scale shared by the map and the list (signage: yellow → orange → red).
 export function severityColor(score: number): string {
-  if (score >= 5) return "#dc2626";
-  if (score >= 3) return "#f97316";
-  return "#f59e0b";
+  if (score >= 5) return "#c8261b";
+  if (score >= 3) return "#f07d00";
+  return "#ffcc00";
+}
+
+/** Text colour that keeps contrast on the severity colour. */
+export function severityInk(score: number): string {
+  return score >= 5 ? "#ffffff" : "#17181a";
 }
 
 export function severityLabel(score: number): string {
@@ -12,5 +17,5 @@ export function severityLabel(score: number): string {
 }
 
 export function markerRadius(score: number): number {
-  return Math.min(10 + score * 3, 34);
+  return Math.min(9 + score * 3, 32);
 }

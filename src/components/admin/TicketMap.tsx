@@ -30,10 +30,10 @@ export default function TicketMap({ tickets, selectedId, onSelect }: Props) {
             center={[t.gps_lat, t.gps_lng]}
             radius={markerRadius(t.severity_score)}
             pathOptions={{
-              color: selected ? "#1e3a8a" : "#ffffff",
-              weight: selected ? 4 : 2,
+              color: "#17181a",
+              weight: selected ? 4 : 1.5,
               fillColor: severityColor(t.severity_score),
-              fillOpacity: 0.85,
+              fillOpacity: 0.95,
             }}
             eventHandlers={{ click: () => onSelect(t.id) }}
           >
