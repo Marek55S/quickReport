@@ -4,7 +4,7 @@ One-snap city issue reporting: a resident takes a photo, AI classifies the probl
 
 Features: one-photo report with AI category, formal letter, and danger level (Gemini); clustering of duplicates; approximate address (OpenStreetMap Nominatim); location from phone, photo EXIF, or map pin; resident app in Polish, English, and Ukrainian; "Moje zgłoszenia" with status timeline and before/after photos (per device, or across devices after a simulated mObywatel sign-in); letter to the responsible city unit as a PDF, sent by an official (e-mail via SMTP or simulated delivery with a receipt number); official dashboard with filters, search, map, after-repair photo, and statistics.
 
-Planned features: [docs/ROADMAP.md](docs/ROADMAP.md). Third-party material: [docs/ATTRIBUTION.md](docs/ATTRIBUTION.md).
+Jury guide (PL): [docs/submission/INSTRUKCJA.md](docs/submission/INSTRUKCJA.md). Planned features: [docs/ROADMAP.md](docs/ROADMAP.md). Third-party material: [docs/ATTRIBUTION.md](docs/ATTRIBUTION.md).
 
 ## Running locally
 
