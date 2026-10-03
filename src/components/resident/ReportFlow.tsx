@@ -31,7 +31,7 @@ import {
 } from "@/lib/types";
 import { downscaleImage, getPosition, readPhotoPosition, type Position } from "./media";
 import { LANG_NAMES, LANGS, setLang, useLang, useT } from "./i18n";
-import { getReporterId } from "./reporter";
+import { getReporterId, signInCitizen } from "./reporter";
 
 const PickerMap = dynamic(() => import("./PickerMap"), {
   ssr: false,
@@ -140,6 +140,8 @@ export default function ReportFlow() {
     if (!photo || !position || !analysis) return;
     setStep("submitting");
     try {
+      // Simulated mObywatel confirmation: starts a citizen session and attaches earlier reports from this device.
+      await signInCitizen();
       const form = new FormData();
       form.append("image", photo.blob, "photo.jpg");
       form.append("lat", String(position.lat));

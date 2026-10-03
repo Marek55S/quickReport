@@ -2,7 +2,7 @@ import { FieldValue, Timestamp } from "@google-cloud/firestore";
 import ngeohash from "ngeohash";
 import { db } from "./firestore";
 import { imageUrl } from "./storage";
-import type { Analysis, Category, LocationSource, MyReport, Stats, SubmitResult, Ticket, TicketStatus } from "./types";
+import type { Analysis, Category, Dispatch, LocationSource, MyReport, Stats, SubmitResult, Ticket, TicketStatus } from "./types";
 import { CATEGORIES, STATUSES } from "./types";
 
 // 8 characters ≈ 38 m × 19 m cell.
@@ -21,6 +21,7 @@ export type ReportInput = Analysis & {
   locationSource?: LocationSource;
   imagePath: string;
   reporterId?: string;
+  ownerId?: string | null;
   address?: string | null;
 };
 
@@ -44,6 +45,7 @@ export async function submitReport(input: ReportInput): Promise<SubmitResult> {
   const reportRef = reports.doc();
   const report = (ticketId: string) => ({
     reporter_id: input.reporterId ?? null,
+    owner_id: input.ownerId ?? null,
     ticket_id: ticketId,
     title: input.title,
     category: input.category,
@@ -150,11 +152,23 @@ export async function listTickets(status: TicketStatus = "OPEN"): Promise<Ticket
     .sort((a, b) => b.severity_score - a.severity_score || b.updated_at.localeCompare(a.updated_at));
 }
 
-/** Reports submitted from one device, newest first, with the current state of their tickets. */
-export async function listMyReports(reporterId: string): Promise<MyReport[]> {
-  // Equality filter only (no composite index); sort in memory.
+/** Attaches anonymous device reports to a citizen after the (simulated) mObywatel login. */
+export async function claimDeviceReports(reporterId: string, ownerId: string): Promise<number> {
   const snapshot = await reports.where("reporter_id", "==", reporterId).get();
-  const docs = snapshot.docs.sort((a, b) => iso(b.get("created_at")).localeCompare(iso(a.get("created_at"))));
+  const unclaimed = snapshot.docs.filter((d) => !d.get("owner_id"));
+  await Promise.all(unclaimed.map((d) => d.ref.update({ owner_id: ownerId })));
+  return unclaimed.length;
+}
+
+/** Reports from this device and, when signed in, from the citizen's other devices; newest first. */
+export async function listMyReports(reporterId: string | null, ownerId: string | null): Promise<MyReport[]> {
+  // Equality filters only (no composite index); merge and sort in memory.
+  const snapshots = await Promise.all([
+    reporterId ? reports.where("reporter_id", "==", reporterId).get() : null,
+    ownerId ? reports.where("owner_id", "==", ownerId).get() : null,
+  ]);
+  const unique = new Map(snapshots.flatMap((s) => s?.docs ?? []).map((d) => [d.id, d]));
+  const docs = [...unique.values()].sort((a, b) => iso(b.get("created_at")).localeCompare(iso(a.get("created_at"))));
   const ticketIds = [...new Set(docs.map((d) => d.get("ticket_id") as string))];
   const ticketDocs = ticketIds.length ? await db.getAll(...ticketIds.map((id) => tickets.doc(id))) : [];
   const byId = new Map(ticketDocs.filter((d) => d.exists).map((d) => [d.id, d.data()!]));
@@ -173,6 +187,8 @@ export async function listMyReports(reporterId: string): Promise<MyReport[]> {
         address: doc.get("address") ?? ticket.address ?? undefined,
         resolution_image_url: ticket.resolution_image_path ? imageUrl(ticket.resolution_image_path) : undefined,
         resolved_note: ticket.resolved_note,
+        dispatched_at: optionalIso(ticket.dispatch?.sent_at),
+        dispatch_unit: ticket.dispatch?.unit_name,
         status: ticket.status,
         severity_score: ticket.severity_score,
         in_progress_at: optionalIso(ticket.in_progress_at),
@@ -263,6 +279,18 @@ function optionalIso(value: unknown): string | undefined {
   return value instanceof Timestamp ? value.toDate().toISOString() : undefined;
 }
 
+function toDispatch(d: FirebaseFirestore.DocumentData | undefined): Dispatch | undefined {
+  if (!d) return undefined;
+  return {
+    unit_id: d.unit_id,
+    unit_name: d.unit_name,
+    channel: d.channel,
+    receipt: d.receipt,
+    reports_at_dispatch: d.reports_at_dispatch,
+    sent_at: iso(d.sent_at),
+  };
+}
+
 function toTicket(id: string, data: FirebaseFirestore.DocumentData): Ticket {
   return {
     id,
@@ -280,6 +308,7 @@ function toTicket(id: string, data: FirebaseFirestore.DocumentData): Ticket {
     danger_reason: data.danger_reason,
     resolution_image_url: data.resolution_image_path ? imageUrl(data.resolution_image_path) : undefined,
     resolved_note: data.resolved_note,
+    dispatch: toDispatch(data.dispatch),
     in_progress_at: optionalIso(data.in_progress_at),
     resolved_at: optionalIso(data.resolved_at),
     image_url: imageUrl(data.image_path),

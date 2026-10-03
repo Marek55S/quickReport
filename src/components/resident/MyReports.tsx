@@ -3,30 +3,45 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { Lightbox, PhotoButton } from "@/components/Lightbox";
-import { ArrowLeft, Camera, Loader2, RefreshCw } from "lucide-react";
+import { ArrowLeft, Camera, Loader2, RefreshCw, Send, ShieldCheck } from "lucide-react";
 import { CATEGORY_ICONS } from "@/components/categories";
 import { ticketNumber } from "@/components/ui";
 import type { MyReport } from "@/lib/types";
 import { useLang, useT } from "./i18n";
-import { getReporterId } from "./reporter";
+import { getReporterId, signInCitizen, signOutCitizen } from "./reporter";
 
-type State = { kind: "loading" } | { kind: "error" } | { kind: "ready"; reports: MyReport[] };
+type Ready = { kind: "ready"; reports: MyReport[]; citizen: { name: string } | null; loginAvailable: boolean };
+type State = { kind: "loading" } | { kind: "error" } | Ready;
 
 export default function MyReports() {
   const t = useT();
   const [state, setState] = useState<State>({ kind: "loading" });
 
+  const [authError, setAuthError] = useState(false);
+
   const load = useCallback(async () => {
     const reporter = getReporterId();
-    if (!reporter) return setState({ kind: "ready", reports: [] });
     try {
-      const res = await fetch(`/api/my-reports?reporter=${reporter}`, { cache: "no-store" });
+      // Device reports by anonymous id; with a citizen session the server adds reports from other devices.
+      const res = await fetch(`/api/my-reports${reporter ? `?reporter=${reporter}` : ""}`, { cache: "no-store" });
       if (!res.ok) throw new Error();
-      setState({ kind: "ready", reports: await res.json() });
+      const data = await res.json();
+      setState({ kind: "ready", reports: data.reports, citizen: data.citizen, loginAvailable: data.login_available });
     } catch {
       setState({ kind: "error" });
     }
   }, []);
+
+  async function signIn() {
+    setAuthError(false);
+    if (await signInCitizen()) await load();
+    else setAuthError(true);
+  }
+
+  async function signOut() {
+    await signOutCitizen();
+    await load();
+  }
 
   useEffect(() => {
     const initial = setTimeout(load, 0);
@@ -56,6 +71,18 @@ export default function MyReports() {
           <p className="mt-16 text-ink-muted" role="alert">
             {t.myError}
           </p>
+        )}
+        {state.kind === "ready" && (state.citizen || state.loginAvailable) && (
+          <div className="mt-4 flex items-start gap-3 rounded-lg bg-surface px-3 py-2.5 text-sm">
+            <ShieldCheck className={`mt-0.5 size-4 shrink-0 ${state.citizen ? "text-ok" : "text-ink-muted"}`} aria-hidden />
+            <div className="flex-1">
+              <p>{state.citizen ? t.signedInAs(state.citizen.name) : t.deviceOnly}</p>
+              <button onClick={state.citizen ? signOut : signIn} className="link mt-1 text-sm">
+                {state.citizen ? t.signOut : t.signIn}
+              </button>
+              {authError && <p className="mt-1 text-sev-high">{t.signInFailed}</p>}
+            </div>
+          </div>
         )}
         {state.kind === "ready" && state.reports.length === 0 && (
           <div className="mt-12">
@@ -89,10 +116,11 @@ function ReportRow({ report: r }: { report: MyReport }) {
     ...(r.resolution_image_url ? [{ src: r.resolution_image_url, alt: `${r.title} – ${t.after}`, caption: t.after }] : []),
   ];
   const Icon = CATEGORY_ICONS[r.category];
-  const stage = r.status === "RESOLVED" ? 3 : r.status === "IN_PROGRESS" ? 2 : 1;
-  const dates = [r.created_at, r.in_progress_at, r.resolved_at];
+  // Received → letter sent to the unit → in progress → resolved.
+  const done = [true, Boolean(r.dispatched_at), r.status !== "OPEN", r.status === "RESOLVED"];
+  const stage = done.lastIndexOf(true) + 1;
+  const dates = [r.created_at, r.dispatched_at, r.in_progress_at, r.resolved_at];
   const fmt = (iso?: string) => (iso ? new Date(iso).toLocaleDateString(locale, { day: "numeric", month: "short" }) : "");
-
   return (
     <li className="border-b border-rule py-4">
       <div className="flex gap-3">
@@ -118,20 +146,22 @@ function ReportRow({ report: r }: { report: MyReport }) {
       </div>
 
       {/* Three-segment progress, like a route indicator. */}
-      <ol className="mt-3 grid grid-cols-3 gap-1" aria-label={t.stageOf(stage, t.stages[stage - 1])}>
-        {t.stages.map((label, i) => {
-          const done = i < stage;
-          return (
-            <li key={label}>
-              <div className={`h-1.5 rounded-full ${done ? (stage === 3 ? "bg-ok" : "bg-primary") : "bg-rule"}`} />
-              <p className={`mt-1 text-[13px] leading-tight ${done ? "font-bold" : "text-ink-faint"}`}>
-                {label}
-                {done && dates[i] && <span className="block font-mono text-[11px] font-normal text-ink-muted">{fmt(dates[i])}</span>}
-              </p>
-            </li>
-          );
-        })}
+      <ol className="mt-3 grid grid-cols-4 gap-1" aria-label={t.stageOf(stage, t.stages[stage - 1])}>
+        {t.stages.map((label, i) => (
+          <li key={label}>
+            <div className={`h-1.5 rounded-full ${done[i] ? (stage === 4 ? "bg-ok" : "bg-primary") : "bg-rule"}`} />
+            <p className={`mt-1 text-xs leading-tight ${done[i] ? "font-bold" : "text-ink-faint"}`}>
+              {label}
+              {done[i] && dates[i] && <span className="block font-mono text-[11px] font-normal text-ink-muted">{fmt(dates[i])}</span>}
+            </p>
+          </li>
+        ))}
       </ol>
+      {r.dispatch_unit && (
+        <p className="mt-2 flex items-center gap-1.5 text-sm text-ink-muted">
+          <Send className="size-3.5 shrink-0 text-primary" aria-hidden /> {t.sentTo(r.dispatch_unit)}
+        </p>
+      )}
 
       {r.resolution_image_url && (
         <figure className="mt-3 grid grid-cols-2 gap-2">
@@ -157,6 +187,7 @@ function ReportRow({ report: r }: { report: MyReport }) {
 
 const STAGE_STYLE = [
   "bg-surface text-ink-muted ring-1 ring-inset ring-rule-strong",
+  "bg-primary-tint text-primary-dark",
   "bg-primary-tint text-primary-dark",
   "bg-ok-tint text-ok",
 ];

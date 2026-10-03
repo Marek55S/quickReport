@@ -11,7 +11,7 @@ Plan and task status: [`.ai/specs/2026-10-03-one-snap-reporting-mvp.md`](specs/2
 | Product scope and demo scenario | See the specification |
 | Application components and stack | Next.js 16 (App Router, TypeScript) + Tailwind CSS 4 + lucide-react, one app: resident PWA at `/`, official dashboard at `/admin` (react-leaflet map) |
 | Data sources and external integrations | OpenStreetMap Nominatim reverse geocoding; Google Cloud project `quickreport-hy26`: Gemini `gemini-2.5-flash` on Vertex AI (`europe-west1`), Firestore Native (`eur3`), private Cloud Storage bucket `quickreport-hy26-report-images` (`europe-central2`); OpenStreetMap tiles for the map |
-| Persistence and identity | Firestore collections `tickets` (+ `images` subcollection), `open_clusters`, and `reports` (one per submission, keyed by an anonymous per-device `reporter_id`); Google services via Application Default Credentials; mObywatel login is a mock; dashboard protected by a shared `ADMIN_PASSWORD` with an HMAC-signed session cookie |
+| Persistence and identity | Firestore collections `tickets` (+ `images` and `dispatches` subcollections), `open_clusters`, and `reports` (one per submission, keyed by an anonymous per-device `reporter_id` and, after the simulated mObywatel sign-in, an `owner_id`); Google services via Application Default Credentials; mObywatel login is a mock; dashboard protected by a shared `ADMIN_PASSWORD` with an HMAC-signed session cookie |
 | Hosting and deployment | Proposed: Cloud Run (`output: "standalone"` is configured); not deployed |
 | Build, test, and run commands | `pnpm install`, `pnpm dev`, `pnpm build`, `pnpm lint`, `pnpm check:clustering`, `pnpm seed` |
 
@@ -38,6 +38,8 @@ Plan and task status: [`.ai/specs/2026-10-03-one-snap-reporting-mvp.md`](specs/2
 | `src/lib/ai.ts`, `src/app/api/analyze/route.ts` | Gemini analysis of photo + optional notes: category (11 incl. default `NOT_DETECTED`), title, formal letter, AI danger level 1–5 with reason; structured JSON output and mock fallback |
 | `src/lib/geocode.ts`, `src/app/api/geocode/` | Approximate address via OpenStreetMap Nominatim (cached, ≤ 1 request/s) |
 | `src/app/api/stats/`, `src/app/api/tickets/[id]/resolution/` | Dashboard statistics; resolving a ticket with an after-repair photo and note |
+| `src/lib/routing.ts`, `src/lib/letter.ts`, `src/lib/dispatch.ts`, `src/app/api/tickets/[id]/{dispatch,letter}/` | Category → Kraków unit routing, PDF letter (pdf-lib + embedded Lato from `public/fonts`), delivery by SMTP e-mail or simulated, receipt stored on the ticket |
+| `src/app/api/citizen/`, `src/lib/auth.ts` | Simulated mObywatel citizen session (signed cookie), claiming device reports |
 | `src/components/resident/i18n.ts` | Resident UI dictionary (PL/EN/UK) and language hook |
 | `scripts/seed-images/` | Wikimedia Commons demo photos (see `docs/ATTRIBUTION.md`) |
 | `src/lib/storage.ts`, `src/app/api/images/` | Photo upload to the private bucket and proxy for serving photos |

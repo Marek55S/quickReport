@@ -3,7 +3,8 @@
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Check, Hammer, Loader2, LogOut, MapPin, Maximize2, Search, ShieldAlert, X } from "lucide-react";
+import { Check, FileText, Hammer, Loader2, LogOut, MapPin, Maximize2, Search, Send, ShieldAlert, X } from "lucide-react";
+import { routeCategory } from "@/lib/routing";
 import { Lightbox, PhotoButton, type LightboxImage } from "@/components/Lightbox";
 import { CATEGORY_ICONS } from "@/components/categories";
 import { StatusTag, ticketNumber, Wordmark } from "@/components/ui";
@@ -221,6 +222,7 @@ export default function Dashboard() {
                       onSelect={() => setSelectedId(t.id === selectedId ? null : t.id)}
                       onStatus={(next) => changeStatus(t.id, next)}
                       onResolve={(form) => resolve(t.id, form)}
+                      onChanged={load}
                     />
                   ))}
                 </ol>
@@ -302,13 +304,17 @@ function DangerBadge({ level, compact = false }: { level: number; compact?: bool
   );
 }
 
-function TicketRow(props: {
+type TicketActionsProps = {
+  onStatus: (s: TicketStatus) => void;
+  onResolve: (form: FormData) => Promise<void>;
+  onChanged: () => Promise<void> | void;
+};
+
+function TicketRow(props: TicketActionsProps & {
   rank: number;
   ticket: Ticket;
   selected: boolean;
   onSelect: () => void;
-  onStatus: (s: TicketStatus) => void;
-  onResolve: (form: FormData) => Promise<void>;
 }) {
   const { ticket: t, selected } = props;
   const Icon = CATEGORY_ICONS[t.category];
@@ -341,12 +347,13 @@ function TicketRow(props: {
             <Icon className="size-3.5 shrink-0" aria-hidden />
             <span className="truncate">{t.address ?? CATEGORY_LABELS[t.category]}</span>
             <span className="shrink-0">· {timeAgo(t.updated_at)}</span>
+            {t.dispatch && <Send className="size-3.5 shrink-0 text-primary" aria-label="Pismo wysłane" />}
           </span>
         </span>
         {/* eslint-disable-next-line @next/next/no-img-element -- served by /api/images */}
         <img src={t.image_url} alt="" className="hidden size-12 shrink-0 rounded-lg bg-rule object-cover sm:block" />
       </button>
-      {selected && <TicketDetails ticket={t} onStatus={props.onStatus} onResolve={props.onResolve} />}
+      {selected && <TicketDetails ticket={t} onStatus={props.onStatus} onResolve={props.onResolve} onChanged={props.onChanged} />}
     </li>
   );
 }
@@ -368,11 +375,7 @@ function viewerImages(t: Ticket, images: string[]): LightboxImage[] {
   return list;
 }
 
-function TicketDetails(props: {
-  ticket: Ticket;
-  onStatus: (s: TicketStatus) => void;
-  onResolve: (form: FormData) => Promise<void>;
-}) {
+function TicketDetails(props: TicketActionsProps & { ticket: Ticket }) {
   const { ticket: t } = props;
   const images = useTicketImages(t);
   const [expanded, setExpanded] = useState(false);
@@ -385,28 +388,18 @@ function TicketDetails(props: {
           <Maximize2 className="size-4" aria-hidden /> Otwórz w dużym oknie
         </button>
       </div>
-      <TicketContent ticket={t} images={images} wide={false} onStatus={props.onStatus} onResolve={props.onResolve} />
-      {expanded && (
-        <TicketModal
-          ticket={t}
-          images={images}
-          onClose={() => setExpanded(false)}
-          onStatus={props.onStatus}
-          onResolve={props.onResolve}
-        />
-      )}
+      <TicketContent ticket={t} images={images} wide={false} {...actionProps(props)} />
+      {expanded && <TicketModal ticket={t} images={images} onClose={() => setExpanded(false)} {...actionProps(props)} />}
     </div>
   );
 }
 
 /** Large view of one ticket: big photos and map next to the letter, details, and actions. */
-function TicketModal(props: {
-  ticket: Ticket;
-  images: string[];
-  onClose: () => void;
-  onStatus: (s: TicketStatus) => void;
-  onResolve: (form: FormData) => Promise<void>;
-}) {
+function actionProps(p: TicketActionsProps): TicketActionsProps {
+  return { onStatus: p.onStatus, onResolve: p.onResolve, onChanged: p.onChanged };
+}
+
+function TicketModal(props: TicketActionsProps & { ticket: Ticket; images: string[]; onClose: () => void }) {
   const { ticket: t } = props;
   const dialog = useRef<HTMLDialogElement>(null);
   useEffect(() => {
@@ -451,20 +444,14 @@ function TicketModal(props: {
           </button>
         </header>
         <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5 sm:px-6">
-          <TicketContent ticket={t} images={props.images} wide onStatus={props.onStatus} onResolve={props.onResolve} />
+          <TicketContent ticket={t} images={props.images} wide {...actionProps(props)} />
         </div>
       </div>
     </dialog>
   );
 }
 
-function TicketContent(props: {
-  ticket: Ticket;
-  images: string[];
-  wide: boolean;
-  onStatus: (s: TicketStatus) => void;
-  onResolve: (form: FormData) => Promise<void>;
-}) {
+function TicketContent(props: TicketActionsProps & { ticket: Ticket; images: string[]; wide: boolean }) {
   const { ticket: t, images, wide } = props;
   const [viewer, setViewer] = useState<number | null>(null);
   const all = viewerImages(t, images);
@@ -540,6 +527,7 @@ function TicketContent(props: {
   );
 
   const actions = <TicketActions ticket={t} onStatus={props.onStatus} onResolve={props.onResolve} />;
+  const dispatch = <DispatchPanel ticket={t} onChanged={props.onChanged} />;
 
   return (
     <>
@@ -553,6 +541,7 @@ function TicketContent(props: {
           </div>
           <div className="space-y-4">
             {danger}
+            {dispatch}
             {letter}
             {after}
             {meta}
@@ -562,6 +551,7 @@ function TicketContent(props: {
       ) : (
         <div className="space-y-4">
           {danger}
+          {dispatch}
           {photos}
           {after}
           {letter}
@@ -571,6 +561,68 @@ function TicketContent(props: {
       )}
       {viewer !== null && <Lightbox images={all} index={viewer} onClose={() => setViewer(null)} />}
     </>
+  );
+}
+
+/** The letter to the responsible unit: preview, send (officials check AI output first), receipt, supplement. */
+function DispatchPanel({ ticket: t, onChanged }: { ticket: Ticket; onChanged: () => Promise<void> | void }) {
+  const unit = routeCategory(t.category);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const d = t.dispatch;
+  const newReports = d ? t.severity_score - d.reports_at_dispatch : 0;
+
+  async function send() {
+    setBusy(true);
+    setError("");
+    const res = await fetch(`/api/tickets/${t.id}/dispatch`, { method: "POST" });
+    if (res.ok) await onChanged();
+    else setError((await res.json().catch(() => null))?.error ?? "Nie udało się wysłać pisma");
+    setBusy(false);
+  }
+
+  return (
+    <section className="rounded-lg border border-rule p-3" aria-label="Pismo do urzędu">
+      <p className="flex items-center justify-between gap-2">
+        <span className="label">Pismo do urzędu</span>
+        <a href={`/api/tickets/${t.id}/letter`} target="_blank" rel="noopener" className="link flex items-center gap-1 text-sm">
+          <FileText className="size-4" aria-hidden /> Podgląd PDF
+        </a>
+      </p>
+      <p className="mt-1 text-sm">
+        Adresat: <b>{unit.name}</b>
+      </p>
+      {d ? (
+        <div className="mt-2 rounded-md bg-primary-tint/60 px-3 py-2 text-sm">
+          <p className="flex items-center gap-1.5 font-bold text-primary-dark">
+            <Send className="size-4" aria-hidden /> Wysłano {new Date(d.sent_at).toLocaleString("pl-PL")}
+          </p>
+          <p className="mt-0.5 text-ink-muted">
+            {d.channel === "email" ? "E-mail z PDF (w prototypie na adres testowy)" : "Doręczenie symulowane (brak konfiguracji SMTP)"} ·
+            potwierdzenie <span className="font-mono text-xs text-ink">{d.receipt}</span>
+          </p>
+          <a href={`/api/tickets/${t.id}/letter?sent=1`} target="_blank" rel="noopener" className="link mt-1 inline-block text-sm">
+            Otwórz wysłane pismo
+          </a>
+        </div>
+      ) : (
+        <p className="mt-1 text-sm text-ink-muted">Pismo nie zostało jeszcze wysłane. Sprawdź kategorię i treść, zanim je wyślesz.</p>
+      )}
+      {d && newReports > 0 && (
+        <p className="mt-2 text-sm text-warn-ink">Od wysyłki: {newReportsText(newReports)}.</p>
+      )}
+      {error && (
+        <p className="mt-2 text-sm font-bold text-sev-high" role="alert">
+          {error}
+        </p>
+      )}
+      {(!d || newReports > 0) && t.status !== "RESOLVED" && (
+        <button onClick={send} disabled={busy} className={`${d ? "btn-secondary" : "btn-primary"} mt-3 py-2.5`}>
+          {busy ? <Loader2 className="size-4 animate-spin" aria-hidden /> : <Send className="size-4" aria-hidden />}
+          {d ? "Wyślij uzupełnienie" : `Wyślij pismo do ${unit.short}`}
+        </button>
+      )}
+    </section>
   );
 }
 
@@ -657,6 +709,13 @@ function ResolveForm({ onCancel, onSubmit }: { onCancel: () => void; onSubmit: (
       </div>
     </div>
   );
+}
+
+// Polish plural: 1 "nowe zgłoszenie", 2–4 "nowe zgłoszenia", otherwise "nowych zgłoszeń".
+function newReportsText(n: number): string {
+  if (n === 1) return "1 nowe zgłoszenie mieszkańca";
+  const few = n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14);
+  return few ? `${n} nowe zgłoszenia mieszkańców` : `${n} nowych zgłoszeń mieszkańców`;
 }
 
 const rtf = new Intl.RelativeTimeFormat("pl", { numeric: "auto" });

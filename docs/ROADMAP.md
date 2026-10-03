@@ -41,7 +41,7 @@ See [specification](../.ai/specs/2026-10-03-official-tools-and-i18n.md): AI dang
 
 - Firestore real-time listeners instead of polling on the dashboard.
 - Service worker with offline report queueing.
-- Real mObywatel / login.gov.pl authentication; per-user dashboard accounts with roles (a shared-password login is implemented).
+- Real mObywatel / login.gov.pl authentication (the identity step is simulated; reports already link to a citizen id); per-user dashboard accounts with roles (a shared-password login is implemented).
 - "Moje zgłoszenia" is implemented with an anonymous per-device id; tie it to the verified identity once mObywatel login is real.
-- Routing tickets to the responsible department or road manager, and integration with city reporting systems (e.g. 19115).
+- Letter delivery to real unit inboxes, the city's ticket system (Open311/API), or e-Doręczenia/ePUAP with an official proof of delivery (routing, PDF, SMTP e-mail, and a simulated receipt are implemented; unit addresses and ownership-based routing are not).
 - Status notifications for residents who reported a problem.

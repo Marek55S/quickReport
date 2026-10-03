@@ -77,8 +77,18 @@ export const CoordinatesSchema = z.object({
   lng: z.coerce.number().min(-180).max(180),
 });
 
+export type Dispatch = {
+  unit_id: string;
+  unit_name: string;
+  channel: "email" | "simulated";
+  receipt: string;
+  reports_at_dispatch: number;
+  sent_at: string;
+};
+
 export type Ticket = {
   id: string;
+  dispatch?: Dispatch;
   geohash: string;
   address?: string;
   danger_level: number;
@@ -103,6 +113,8 @@ export type Ticket = {
 /** A resident's own submission with the current state of the ticket it belongs to. */
 export type MyReport = {
   id: string;
+  dispatched_at?: string;
+  dispatch_unit?: string;
   ticket_id: string;
   address?: string;
   resolution_image_url?: string;

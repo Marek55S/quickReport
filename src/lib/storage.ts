@@ -33,3 +33,8 @@ export async function readImage(path: string) {
   const [[metadata], [contents]] = await Promise.all([file.getMetadata(), file.download()]);
   return { contents, contentType: metadata.contentType ?? "image/jpeg" };
 }
+
+export async function saveFile(path: string, data: Buffer | Uint8Array, contentType: string): Promise<string> {
+  await bucket().file(path).save(Buffer.from(data), { contentType, resumable: false });
+  return path;
+}

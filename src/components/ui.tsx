@@ -1,9 +1,6 @@
 import type { TicketStatus } from "@/lib/types";
 
-/** Short, readable reference shown to residents and officials, e.g. "ZGŁ-AB12CD". */
-export function ticketNumber(id: string): string {
-  return `ZGŁ-${id.slice(0, 6).toUpperCase()}`;
-}
+export { ticketNumber } from "@/lib/format";
 
 /** App mark: a square with a point – a nod to the square Main Square plan behind Kraków's identity. Not the city logo. */
 export function BrandMark({ className = "size-8", inverted = false }: { className?: string; inverted?: boolean }) {

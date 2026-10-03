@@ -1,3 +1,4 @@
+import { readCitizen } from "@/lib/auth";
 import { reverseGeocode } from "@/lib/geocode";
 import { uploadImage } from "@/lib/storage";
 import { submitReport } from "@/lib/tickets";
@@ -47,6 +48,7 @@ export async function POST(request: Request) {
     locationSource: report.data.location_source,
     imagePath,
     reporterId: reporter.success ? reporter.data : undefined,
+    ownerId: readCitizen(request),
     address,
   });
   return Response.json(result, { status: result.merged ? 200 : 201 });

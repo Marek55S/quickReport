@@ -2,7 +2,7 @@
 
 One-snap city issue reporting: a resident takes a photo, AI classifies the problem and drafts a formal report, and duplicate reports from the same spot are clustered into one prioritized ticket for city officials.
 
-Features: one-photo report with AI category, formal letter, and danger level (Gemini); clustering of duplicates; approximate address (OpenStreetMap Nominatim); location from phone, photo EXIF, or map pin; resident app in Polish, English, and Ukrainian; "Moje zgłoszenia" with status and before/after photos; official dashboard with filters, search, map, after-repair photo, and statistics.
+Features: one-photo report with AI category, formal letter, and danger level (Gemini); clustering of duplicates; approximate address (OpenStreetMap Nominatim); location from phone, photo EXIF, or map pin; resident app in Polish, English, and Ukrainian; "Moje zgłoszenia" with status timeline and before/after photos (per device, or across devices after a simulated mObywatel sign-in); letter to the responsible city unit as a PDF, sent by an official (e-mail via SMTP or simulated delivery with a receipt number); official dashboard with filters, search, map, after-repair photo, and statistics.
 
 Planned features: [docs/ROADMAP.md](docs/ROADMAP.md). Third-party material: [docs/ATTRIBUTION.md](docs/ATTRIBUTION.md).
 
@@ -51,7 +51,8 @@ gcloud run deploy quickreport --source . --region=europe-central2 \
 ```
 
 The command prints the HTTPS service URL.
-The dashboard at `/admin` requires `ADMIN_PASSWORD`; without it the dashboard stays locked.
+The dashboard at `/admin` requires `ADMIN_PASSWORD`; without it the dashboard stays locked (and the simulated mObywatel sign-in for "Moje zgłoszenia" is disabled).
+To deliver letters by e-mail, add `SMTP_URL` (e.g. `smtps://user%40gmail.com:app-password@smtp.gmail.com:465`), `SMTP_FROM`, and `DELIVERY_TEST_EMAIL`; without them the delivery is simulated and the PDF is still generated.
 Environment variables are visible to anyone with view access to the Cloud Run service; use Secret Manager (`--update-secrets`) for a real deployment.
 
 ## Working with an agent

@@ -129,7 +129,13 @@ type Dict = {
   myError: string;
   emptyTitle: string;
   emptyBody: string;
-  stages: [string, string, string];
+  stages: [string, string, string, string];
+  sentTo: (unit: string) => string;
+  deviceOnly: string;
+  signIn: string;
+  signedInAs: (name: string) => string;
+  signOut: string;
+  signInFailed: string;
   stageOf: (n: number, label: string) => string;
   reportsCount: (n: number) => string;
   before: string;
@@ -224,8 +230,14 @@ const pl: Dict = {
   myError: "Nie udało się pobrać zgłoszeń. Spróbuj ponownie.",
   emptyTitle: "Nic tu jeszcze nie ma",
   emptyBody: "Nie masz jeszcze zgłoszeń wysłanych z tego urządzenia.",
-  stages: ["Przyjęte", "W realizacji", "Rozwiązane"],
-  stageOf: (n, label) => `Etap ${n} z 3: ${label}`,
+  stages: ["Przyjęte", "Wysłane do urzędu", "W realizacji", "Rozwiązane"],
+  stageOf: (n, label) => `Etap ${n} z 4: ${label}`,
+  sentTo: (unit) => `Pismo wysłane do: ${unit}`,
+  deviceOnly: "Widzisz zgłoszenia wysłane z tego urządzenia. Zaloguj się, aby zobaczyć zgłoszenia ze wszystkich urządzeń.",
+  signIn: "Zaloguj przez mObywatel (symulacja)",
+  signedInAs: (name) => `Zalogowano jako ${name} (symulacja mObywatel) – widzisz zgłoszenia ze wszystkich urządzeń.`,
+  signOut: "Wyloguj",
+  signInFailed: "Logowanie jest teraz niedostępne.",
   reportsCount: (n) => `Zgłoszeń tego problemu: ${n}`,
   before: "Przed",
   after: "Po naprawie",
@@ -327,8 +339,14 @@ const en: Dict = {
   myError: "We couldn't load your reports. Please try again.",
   emptyTitle: "Nothing here yet",
   emptyBody: "You haven't sent any reports from this device yet.",
-  stages: ["Received", "In progress", "Resolved"],
-  stageOf: (n, label) => `Stage ${n} of 3: ${label}`,
+  stages: ["Received", "Sent to the city", "In progress", "Resolved"],
+  stageOf: (n, label) => `Stage ${n} of 4: ${label}`,
+  sentTo: (unit) => `Letter sent to: ${unit}`,
+  deviceOnly: "You're seeing reports sent from this device. Sign in to see reports from all your devices.",
+  signIn: "Sign in with mObywatel (simulated)",
+  signedInAs: (name) => `Signed in as ${name} (simulated mObywatel) – showing reports from all your devices.`,
+  signOut: "Sign out",
+  signInFailed: "Sign-in is unavailable right now.",
   reportsCount: (n) => `Reports of this problem: ${n}`,
   before: "Before",
   after: "After repair",
@@ -433,8 +451,14 @@ const uk: Dict = {
   myError: "Не вдалося завантажити звернення. Спробуйте ще раз.",
   emptyTitle: "Тут поки нічого немає",
   emptyBody: "Ви ще не надсилали звернень із цього пристрою.",
-  stages: ["Прийнято", "У роботі", "Вирішено"],
-  stageOf: (n, label) => `Етап ${n} з 3: ${label}`,
+  stages: ["Прийнято", "Надіслано до міської ради", "У роботі", "Вирішено"],
+  stageOf: (n, label) => `Етап ${n} з 4: ${label}`,
+  sentTo: (unit) => `Лист надіслано: ${unit}`,
+  deviceOnly: "Ви бачите звернення, надіслані з цього пристрою. Увійдіть, щоб бачити звернення з усіх пристроїв.",
+  signIn: "Увійти через mObywatel (симуляція)",
+  signedInAs: (name) => `Ви увійшли як ${name} (симуляція mObywatel) – показано звернення з усіх пристроїв.`,
+  signOut: "Вийти",
+  signInFailed: "Вхід зараз недоступний.",
   reportsCount: (n) => `Звернень щодо цієї проблеми: ${n}`,
   before: "До",
   after: "Після ремонту",

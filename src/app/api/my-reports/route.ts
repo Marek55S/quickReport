@@ -1,11 +1,19 @@
+import { citizenLoginEnabled, DEMO_CITIZEN, readCitizen } from "@/lib/auth";
 import { listMyReports } from "@/lib/tickets";
 import { ReporterIdSchema } from "@/lib/types";
 
-// GET /api/my-reports?reporter=<uuid> – submissions from one device with current ticket status
+// GET /api/my-reports?reporter=<uuid> – this device's reports plus, with a citizen session, all of the citizen's
 export async function GET(request: Request) {
-  const reporter = ReporterIdSchema.safeParse(new URL(request.url).searchParams.get("reporter"));
-  if (!reporter.success) {
+  const param = new URL(request.url).searchParams.get("reporter");
+  const reporter = ReporterIdSchema.safeParse(param);
+  if (param && !reporter.success) {
     return Response.json({ error: "Niepoprawny identyfikator" }, { status: 400 });
   }
-  return Response.json(await listMyReports(reporter.data));
+  const citizen = readCitizen(request);
+  const reports = await listMyReports(reporter.success ? reporter.data : null, citizen);
+  return Response.json({
+    reports,
+    citizen: citizen ? { name: DEMO_CITIZEN.name } : null,
+    login_available: citizenLoginEnabled(),
+  });
 }
