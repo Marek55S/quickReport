@@ -29,7 +29,7 @@ import {
   type Category,
   type SubmitResult,
 } from "@/lib/types";
-import { downscaleImage, getPosition, readPhotoPosition, type Position } from "./media";
+import { downscaleImage, getPosition, readPhotoPosition, withTimeout, type Position } from "./media";
 import { LANG_NAMES, LANGS, setLang, useLang, useT } from "./i18n";
 import { getReporterId, signInCitizen } from "./reporter";
 
@@ -65,7 +65,12 @@ async function requestAnalysis(blob: Blob, notes = ""): Promise<AnalyzeResponse>
   const form = new FormData();
   form.append("image", blob, "photo.jpg");
   if (notes.trim()) form.append("notes", notes.trim());
-  const res = await fetch("/api/analyze", { method: "POST", body: form });
+  // The server falls back to demo mode after 25 s; give up on the client after 60 s (slow mobile upload included).
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 60_000);
+  const res = await fetch("/api/analyze", { method: "POST", body: form, signal: controller.signal }).finally(() =>
+    clearTimeout(timer),
+  );
   if (!res.ok) throw new Error("analyze");
   return res.json();
 }
@@ -74,7 +79,6 @@ export default function ReportFlow() {
   const t = useT();
   const cameraInput = useRef<HTMLInputElement>(null);
   const galleryInput = useRef<HTMLInputElement>(null);
-  const positionPromise = useRef<Promise<Position> | null>(null);
   const [step, setStep] = useState<Step>("home");
   const [photo, setPhoto] = useState<{ blob: Blob; url: string } | null>(null);
   const [locations, setLocations] = useState<{ device: Position; exif: Position | null; map: Position | null } | null>(
@@ -90,32 +94,30 @@ export default function ReportFlow() {
   const position = locations ? (locations[locationChoice] ?? locations.device) : null;
 
   function startReport(source: "camera" | "gallery") {
-    // Ask for location while the user is taking or choosing the photo.
-    positionPromise.current = getPosition();
+    // Location is requested after the photo: on iOS a permission prompt shown while the camera opens can get lost.
     (source === "camera" ? cameraInput : galleryInput).current?.click();
   }
 
   /** Desktop drag and drop: same flow as picking a file. */
   function startWithFile(file: File) {
-    positionPromise.current = getPosition();
     onPhotoSelected(file);
   }
 
   async function onPhotoSelected(file: File | undefined) {
     if (!file) return;
     setStep("analyzing");
+    if (photo) URL.revokeObjectURL(photo.url);
+    setPhoto(null);
     try {
-      const [blob, device, exif] = await Promise.all([
-        downscaleImage(file),
-        positionPromise.current ?? getPosition(),
-        readPhotoPosition(file),
-      ]);
-      if (photo) URL.revokeObjectURL(photo.url);
+      // Location and EXIF run in parallel with the analysis; nothing waits for the slowest step to show the photo.
+      const located = Promise.all([getPosition(), withTimeout(readPhotoPosition(file), 5000, null)]);
+      const blob = await downscaleImage(file);
       setPhoto({ blob, url: URL.createObjectURL(blob) });
-      setLocations({ device, exif, map: null });
-      setLocationChoice("device");
 
-      const data = await requestAnalysis(blob);
+      const [data, [device, exif]] = await Promise.all([requestAnalysis(blob), located]);
+      setLocations({ device, exif, map: null });
+      // Without device location prefer the photo's GPS; otherwise the resident can pin the map.
+      setLocationChoice(device.source === "demo" && exif ? "exif" : "device");
       setAnalysis(data.analysis);
       setAiSource(data.source);
       setStep("review");
@@ -666,6 +668,8 @@ function NotesSection(props: {
   const [busy, setBusy] = useState(false);
   const [outcome, setOutcome] = useState<"updated" | "ignored" | "failed" | null>(null);
   const feedback = useRef<HTMLDivElement>(null);
+  // Notes the report was last generated from; leaving the field with different notes regenerates automatically.
+  const generatedFrom = useRef("");
 
   // The result appears at the bottom of the screen, under the sticky send bar; bring it into view.
   useEffect(() => {
@@ -675,6 +679,7 @@ function NotesSection(props: {
   }, [outcome]);
 
   async function run() {
+    generatedFrom.current = props.notes.trim();
     setBusy(true);
     setOutcome(null);
     try {
@@ -695,6 +700,10 @@ function NotesSection(props: {
           onChange={(e) => {
             props.onNotes(e.target.value);
             setOutcome(null);
+          }}
+          onBlur={() => {
+            const notes = props.notes.trim();
+            if (notes && notes !== generatedFrom.current && !busy) run();
           }}
           maxLength={NOTES_MAX_LENGTH}
           rows={3}

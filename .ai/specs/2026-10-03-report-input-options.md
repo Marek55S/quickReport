@@ -87,3 +87,11 @@ Give residents control over where and what they report: choose the location sour
 - Files: `src/lib/ai.ts`, `src/components/resident/ReportFlow.tsx`
 - Validation (real Gemini): pothole + no notes / weather question / random text → `notes_used=false`; pothole + tyre damage detail → `true`; blank + greeting → `false` (`NOT_DETECTED`); blank + broken street lamp → `true` (`INFRASTRUCTURE_FAILURE`). Playwright: irrelevant notes left the report unchanged with the warning visible; editing cleared it; relevant notes changed the report and showed the confirmation. `pnpm build` and `pnpm lint` passed.
 
+## Fix: endless "Analizuję zdjęcie…" on iOS (2026-10-04)
+
+- Report: on an iPhone the photo did not appear after taking it and the analysing screen spun indefinitely.
+- Cause: the photo was shown only after downscaling, device location, and EXIF all finished (`Promise.all`). Location was requested while the camera opened; on iOS the permission prompt can be hidden or still pending, `getCurrentPosition` then never calls back, and its `timeout` only starts after permission is granted, so the flow waited forever.
+- Reproduced in Chrome by replacing `getCurrentPosition` with a function that never calls back: after 25 s no photo and still "Analizuję zdjęcie…".
+- Fix (`src/components/resident/media.ts`, `src/components/resident/ReportFlow.tsx`): location is requested after the photo is chosen; `getPosition` has a hard limit (timeout + 1 s → demo location); EXIF read limited to 5 s; downscaling limited to 8 s with an `<img>` decoding fallback when `createImageBitmap` is unavailable; the photo is shown immediately and the AI analysis runs in parallel with location; the analysis request aborts after 60 s and shows an error; with no device location the photo's GPS is preferred.
+- Validation: hang scenario → photo after 0.27 s, review after 11 s with the demo-location notice; location granted → photo 0.26 s, review 5 s with GPS ±8 m; denied → photo 0.23 s, review 7 s. `pnpm build` and `pnpm lint` passed. Not verified on a physical iPhone.
+

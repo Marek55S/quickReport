@@ -66,6 +66,15 @@ function wrap(text: string, font: PDFFont, size: number, width: number): string[
   return lines;
 }
 
+/** Approximate street address, or GPS coordinates when the address is unknown. */
+export function placeText(input: { address?: string | null; lat: number; lng: number }): string {
+  return input.address ? `ok. ${input.address}` : `GPS ${input.lat.toFixed(5)}, ${input.lng.toFixed(5)}`;
+}
+
+export function mapLink(lat: number, lng: number): string {
+  return `https://osm.org/?mlat=${lat.toFixed(5)}&mlon=${lng.toFixed(5)}&zoom=18`;
+}
+
 export async function buildLetterPdf(input: LetterInput): Promise<Uint8Array> {
   const doc = await PDFDocument.create();
   doc.registerFontkit(fontkit);
@@ -117,13 +126,14 @@ export async function buildLetterPdf(input: LetterInput): Promise<Uint8Array> {
 
   text(input.unit.name, { font: bold, size: 13 });
   text("Adresat (proponowany przydział, do potwierdzenia przez urząd)", { size: 8.5, color: MUTED, gap: 14 });
-  text(`Dotyczy: ${input.title}`, { font: bold, size: 15, gap: 10 });
+  text(`Dotyczy: ${input.title}`, { font: bold, size: 15, gap: 2 });
+  text(`Miejsce zdarzenia: ${placeText(input)}`, { font: bold, size: 11, color: BLUE, gap: 12 });
 
   row("Numer zgłoszenia", number);
   row("Kategoria", CATEGORY_LABELS[input.category]);
-  row("Lokalizacja", input.address ? `ok. ${input.address}` : "adres nieustalony");
+  row("Adres (przybliżony)", input.address ?? "nie udało się ustalić – zob. współrzędne GPS");
   row("Współrzędne GPS", `${input.lat.toFixed(6)}, ${input.lng.toFixed(6)}`);
-  row("Mapa", `https://osm.org/?mlat=${input.lat.toFixed(5)}&mlon=${input.lng.toFixed(5)}&zoom=18`);
+  row("Mapa", mapLink(input.lat, input.lng));
   row("Liczba zgłaszających", `${input.reports} (zgłoszenia z tego miejsca połączone w jedno)`);
   row("Pierwsze zgłoszenie", new Date(input.firstReportedAt).toLocaleString("pl-PL", { timeZone: "Europe/Warsaw" }));
   row(

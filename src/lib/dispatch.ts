@@ -3,7 +3,8 @@ import { FieldValue } from "@google-cloud/firestore";
 import nodemailer from "nodemailer";
 import { db } from "./firestore";
 import { ticketNumber } from "./format";
-import { buildLetterPdf } from "./letter";
+import { reverseGeocode } from "./geocode";
+import { buildLetterPdf, mapLink, placeText } from "./letter";
 import { routeCategory } from "./routing";
 import { readImage, saveFile } from "./storage";
 import { TicketNotFoundError } from "./tickets";
@@ -42,6 +43,11 @@ async function loadTicketLetter(ticketId: string) {
   ).filter((p): p is { data: Buffer; contentType: string } => p !== null);
 
   const t = ticket.data()!;
+  // Tickets created before geocoding existed get their address now, so every letter names the place.
+  if (!t.address) {
+    t.address = await reverseGeocode(t.gps_lat, t.gps_lng);
+    if (t.address) await ref.update({ address: t.address });
+  }
   const unit = routeCategory(t.category);
   const pdf = await buildLetterPdf({
     ticketId,
@@ -69,6 +75,7 @@ export async function previewLetter(ticketId: string): Promise<Uint8Array> {
 export async function dispatchLetter(ticketId: string): Promise<DispatchResult> {
   const { ref, ticket, unit, pdf } = await loadTicketLetter(ticketId);
   const number = ticketNumber(ticketId);
+  const place = placeText({ address: ticket.address, lat: ticket.gps_lat, lng: ticket.gps_lng });
   const sentAt = new Date();
   const letterPath = `letters/${ticketId}/${sentAt.toISOString().replace(/[:.]/g, "-")}.pdf`;
   await saveFile(letterPath, pdf, "application/pdf");
@@ -79,17 +86,17 @@ export async function dispatchLetter(ticketId: string): Promise<DispatchResult> 
     await transport.sendMail({
       from: process.env.SMTP_FROM ?? process.env.DELIVERY_TEST_EMAIL,
       to: process.env.DELIVERY_TEST_EMAIL,
-      subject: `[QuickReport] ${number}: ${ticket.title} – do: ${unit.name}`,
+      subject: `[QuickReport] ${number}: ${ticket.title} – ${place} – do: ${unit.name}`,
       text: [
+        `Miejsce zdarzenia: ${place}`,
+        `Współrzędne GPS: ${ticket.gps_lat.toFixed(6)}, ${ticket.gps_lng.toFixed(6)} (mapa: ${mapLink(ticket.gps_lat, ticket.gps_lng)})`,
+        "",
         `Adresat (prototyp – wysyłka na adres testowy): ${unit.name}`,
         `Zgłoszenie: ${number} – ${ticket.title}`,
         `Liczba zgłaszających: ${ticket.severity_score}`,
-        ticket.address ? `Lokalizacja: ok. ${ticket.address}` : "",
         "",
         "Pismo w załączniku (PDF).",
-      ]
-        .filter((line) => line !== "")
-        .join("\n"),
+      ].join("\n"),
       attachments: [{ filename: `${number}.pdf`, content: Buffer.from(pdf), contentType: "application/pdf" }],
     });
     channel = "email";

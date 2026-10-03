@@ -32,3 +32,11 @@
   - Fixed during testing: an overflowing map URL in the PDF (long tokens now wrap; shorter link), Polish plural for new reports since dispatch.
   - `pnpm build` and `pnpm lint` passed. Test tickets, submissions, and stored letters removed; Mailpit stopped.
 - Not verified: delivery through a real SMTP provider (only Mailpit), behaviour on Cloud Run, physical phone.
+
+## Follow-up: event address and notes precedence (2026-10-03)
+
+- Request: include the event address in the e-mail and the letter; when the resident's notes say the report is about something slightly different from the photo, update the report.
+- Changes: the letter has a bold "Miejsce zdarzenia" line under "Dotyczy" and an "Adres (przybliżony)" row (GPS when unknown); the e-mail subject and first body lines carry the address, GPS, and map link; tickets without an address are geocoded at dispatch and updated. The Gemini prompt now gives the resident's notes precedence over the photo (title, text, and category follow the notes; the photo documents the place) and marks notes as unused only when they are not about a city problem at all. Leaving the notes field with changed notes regenerates automatically; the button remains.
+- Files: `src/lib/ai.ts`, `src/lib/letter.ts`, `src/lib/dispatch.ts`, `src/components/resident/ReportFlow.tsx`
+- Validation (real Gemini, Mailpit): pothole photo + "it's about the street lamp next to it" → `INFRASTRUCTURE_FAILURE`, "Niesprawne oświetlenie uliczne", notes used; + "it's the pavement by the tram stop" → title about the pavement by the stop; + weather question → not used. E-mail subject "… – ok. Bożego Ciała 26, Stare Miasto, Kraków – do: Zarząd Dróg Miasta Krakowa", body starts with "Miejsce zdarzenia: …" and GPS with map link; the PDF contains the same "Miejsce zdarzenia" line. Playwright: typing notes and tapping another field changed the title to "Niesprawna latarnia uliczna" and the category without pressing the button; typing then pressing the button sent one analysis request. `pnpm build` and `pnpm lint` passed; test ticket and letter removed.
+
