@@ -36,18 +36,18 @@ export default function MyReports() {
   }, [load]);
 
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col bg-paper">
-      <header className="sticky top-0 z-10 flex items-center gap-2 border-b border-rule bg-paper px-3 pb-2.5 pt-[max(0.75rem,env(safe-area-inset-top))]">
-        <Link href="/" aria-label="Wstecz" className="rounded-[4px] p-2 hover:bg-ink/5">
+    <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col bg-paper lg:max-w-3xl">
+      <header className="sticky top-0 z-10 flex items-center gap-2 border-b border-rule bg-paper px-3 pb-2.5 pt-[max(0.75rem,env(safe-area-inset-top))] lg:px-6 lg:py-4">
+        <Link href="/" aria-label="Wstecz" className="rounded-lg p-2 hover:bg-surface">
           <ArrowLeft className="size-5" />
         </Link>
         <h1 className="display flex-1 text-xl leading-none">Moje zgłoszenia</h1>
-        <button onClick={load} aria-label="Odśwież" className="rounded-[4px] p-2 text-ink-muted hover:bg-ink/5">
+        <button onClick={load} aria-label="Odśwież" className="rounded-lg p-2 text-ink-muted hover:bg-surface">
           <RefreshCw className="size-5" />
         </button>
       </header>
 
-      <div className="flex-1 px-5 pb-10">
+      <div className="flex-1 px-5 pb-10 lg:px-8">
         {state.kind === "loading" && <Loader2 className="mx-auto mt-16 size-8 animate-spin" aria-label="Ładowanie" />}
         {state.kind === "error" && (
           <p className="mt-16 text-ink-muted" role="alert">
@@ -87,7 +87,7 @@ function ReportRow({ report: r }: { report: MyReport }) {
     <li className="border-b border-rule py-4">
       <div className="flex gap-3">
         {/* eslint-disable-next-line @next/next/no-img-element -- served by /api/images */}
-        <img src={r.image_url} alt="" className="size-16 shrink-0 rounded-[4px] bg-rule object-cover" />
+        <img src={r.image_url} alt="" className="size-16 shrink-0 rounded-lg bg-rule object-cover lg:size-20" />
         <div className="min-w-0 flex-1">
           <div className="flex items-center justify-between gap-2">
             <span className="ticket-no">{ticketNumber(r.ticket_id)}</span>
@@ -112,7 +112,7 @@ function ReportRow({ report: r }: { report: MyReport }) {
           const done = i < stage;
           return (
             <li key={label}>
-              <div className={`h-1.5 ${done ? (stage === 3 ? "bg-ok" : "bg-ink") : "bg-rule"}`} />
+              <div className={`h-1.5 rounded-full ${done ? (stage === 3 ? "bg-ok" : "bg-primary") : "bg-rule"}`} />
               <p className={`mt-1 text-[13px] leading-tight ${done ? "font-medium" : "text-ink-faint"}`}>
                 {label}
                 {done && dates[i] && <span className="block font-mono text-[11px] text-ink-muted">{fmt(dates[i])}</span>}

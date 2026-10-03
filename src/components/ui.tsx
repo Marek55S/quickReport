@@ -5,30 +5,37 @@ export function ticketNumber(id: string): string {
   return `ZGŁ-${id.slice(0, 6).toUpperCase()}`;
 }
 
-/** Brand mark: a road-works yellow square with a location pin cut-out. */
-export function BrandMark({ className = "size-7" }: { className?: string }) {
+/** App mark: a square with a point – a nod to the square Main Square plan behind Kraków's identity. Not the city logo. */
+export function BrandMark({ className = "size-8", inverted = false }: { className?: string; inverted?: boolean }) {
+  const bg = inverted ? "#ffffff" : "var(--primary)";
+  const fg = inverted ? "var(--primary)" : "#ffffff";
   return (
     <svg viewBox="0 0 32 32" className={className} aria-hidden>
-      <rect width="32" height="32" rx="3" fill="var(--signal)" />
-      <path d="M16 6.5c-4.1 0-7.4 3.2-7.4 7.2 0 5.3 7.4 11.8 7.4 11.8s7.4-6.5 7.4-11.8c0-4-3.3-7.2-7.4-7.2z" fill="var(--ink)" />
-      <circle cx="16" cy="13.6" r="2.8" fill="var(--signal)" />
+      <rect width="32" height="32" rx="7" fill={bg} />
+      <rect x="8.5" y="8.5" width="15" height="15" rx="2" fill="none" stroke={fg} strokeWidth="2.25" />
+      <circle cx="16" cy="16" r="2.75" fill={fg} />
     </svg>
   );
 }
 
-export function Wordmark({ inverted = false }: { inverted?: boolean }) {
+export function Wordmark({ inverted = false, place = false }: { inverted?: boolean; place?: boolean }) {
   return (
-    <span className="flex items-center gap-2">
-      <BrandMark />
-      <span className={`display text-xl leading-none ${inverted ? "text-paper" : "text-ink"}`}>QuickReport</span>
+    <span className="flex items-center gap-2.5">
+      <BrandMark inverted={inverted} />
+      <span className="flex items-baseline gap-2 leading-none">
+        <span className={`font-brand text-[19px] font-medium ${inverted ? "text-white" : "text-ink"}`}>QuickReport</span>
+        {place && (
+          <span className={`text-sm font-bold ${inverted ? "text-white/70" : "text-primary"}`}>Kraków</span>
+        )}
+      </span>
     </span>
   );
 }
 
 const STATUS_STYLE: Record<TicketStatus, { label: string; className: string }> = {
-  OPEN: { label: "Przyjęte", className: "border-ink text-ink" },
-  IN_PROGRESS: { label: "W realizacji", className: "border-ink bg-signal text-ink" },
-  RESOLVED: { label: "Rozwiązane", className: "border-ok bg-ok text-white" },
+  OPEN: { label: "Przyjęte", className: "bg-surface text-ink-muted ring-1 ring-inset ring-rule-strong" },
+  IN_PROGRESS: { label: "W realizacji", className: "bg-primary-tint text-primary-dark" },
+  RESOLVED: { label: "Rozwiązane", className: "bg-ok-tint text-ok" },
 };
 
 export function StatusTag({ status }: { status: TicketStatus }) {

@@ -1,18 +1,18 @@
 import type { Metadata, Viewport } from "next";
-import { Barlow, Barlow_Condensed, Geist_Mono } from "next/font/google";
+import { Geist_Mono, Lato, Ubuntu } from "next/font/google";
 import "./globals.css";
 
-const barlow = Barlow({
-  variable: "--font-barlow",
+// Lato is the official typeface for City of Kraków texts; Ubuntu Medium is used in the city logotype.
+const lato = Lato({
+  variable: "--font-lato",
   subsets: ["latin", "latin-ext"],
-  weight: ["400", "500", "600"],
+  weight: ["400", "700", "900"],
 });
 
-// Condensed signage face for headings, labels, and buttons.
-const barlowCondensed = Barlow_Condensed({
-  variable: "--font-barlow-condensed",
+const ubuntu = Ubuntu({
+  variable: "--font-ubuntu",
   subsets: ["latin", "latin-ext"],
-  weight: ["600", "700"],
+  weight: ["500"],
 });
 
 const geistMono = Geist_Mono({
@@ -27,7 +27,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#f4f1ea",
+  themeColor: "#ffffff",
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
@@ -37,7 +37,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="pl"
-      className={`${barlow.variable} ${barlowCondensed.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${lato.variable} ${ubuntu.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">{children}</body>
     </html>

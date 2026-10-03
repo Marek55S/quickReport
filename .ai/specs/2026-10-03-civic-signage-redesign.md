@@ -1,12 +1,16 @@
 # Civic Signage Redesign
 
-- Status: `In Progress`
+- Status: `Abandoned`
 - Type: `design`
 - Branch: `None (user manages Git; work stays in the current working tree)`
 - Created: `2026-10-03`
 - Updated: `2026-10-03`
 - Owner: `Marek55S`
 - Authorization: `2026-10-03: user asked to redesign the UI so it stops looking like generic "AI slop" while staying clean and usable, chose the "Miejskie oznakowanie" direction, and declined a "W okolicy" list on the home screen.`
+
+## Superseded
+
+The user rejected this direction on 2026-10-03 ("wygląda jak aplikacja InPost") and asked for a modern, minimal style matching the City of Kraków identity; see `2026-10-03-krakow-identity-redesign.md`.
 
 ## Goal
 

@@ -1,13 +1,13 @@
-// Visual priority scale shared by the map and the list (signage: yellow → orange → red).
+// Priority scale in Kraków's heraldic colours: beige (low) → yellow (medium) → red (high).
 export function severityColor(score: number): string {
-  if (score >= 5) return "#c8261b";
-  if (score >= 3) return "#f07d00";
-  return "#ffcc00";
+  if (score >= 5) return "#e40521";
+  if (score >= 3) return "#ffcc00";
+  return "#cdb794";
 }
 
 /** Text colour that keeps contrast on the severity colour. */
 export function severityInk(score: number): string {
-  return score >= 5 ? "#ffffff" : "#17181a";
+  return score >= 5 ? "#ffffff" : "#1b2733";
 }
 
 export function severityLabel(score: number): string {

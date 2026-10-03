@@ -80,20 +80,20 @@ export default function Dashboard() {
 
   return (
     <div className="flex min-h-dvh flex-col bg-paper lg:h-dvh">
-      <header className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 bg-ink px-4 py-2.5 text-paper sm:px-6">
+      <header className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 border-b border-rule bg-paper px-4 py-3 sm:px-6">
         <div className="flex items-center gap-4">
-          <Wordmark inverted />
-          <span className="hidden border-l border-paper/30 pl-4 font-display text-[15px] font-semibold uppercase tracking-[0.08em] text-paper/80 sm:block">
+          <Wordmark />
+          <span className="hidden border-l border-rule pl-4 text-[15px] font-bold text-ink-muted sm:block">
             Panel zgłoszeń miejskich
           </span>
         </div>
         <div className="flex items-center gap-4">
-          <p className="font-mono text-xs text-paper/70" aria-live="polite">
+          <p className="text-sm text-ink-muted" aria-live="polite">
             {updatedAt ? `Odświeżono ${updatedAt.toLocaleTimeString("pl-PL")}` : "Ładowanie…"}
           </p>
           <button
             onClick={logout}
-            className="flex items-center gap-1.5 rounded-[4px] border border-paper/40 px-3 py-1.5 font-display text-sm font-semibold uppercase tracking-[0.04em] hover:bg-paper hover:text-ink"
+            className="flex items-center gap-1.5 rounded-lg border border-rule-strong px-3 py-1.5 text-sm font-bold hover:border-primary hover:text-primary"
           >
             <LogOut className="size-4" aria-hidden /> Wyloguj
           </button>
@@ -103,15 +103,15 @@ export default function Dashboard() {
       <div className="grid flex-1 grid-cols-1 lg:min-h-0 lg:grid-cols-[minmax(380px,460px)_minmax(0,1fr)]">
         <section className="order-2 flex min-h-0 min-w-0 flex-col border-rule lg:order-1 lg:border-r">
           <div className="px-4 pt-4 sm:px-5">
-            <h1 className="display text-3xl leading-none">Zgłoszenia</h1>
-            <nav className="mt-3 flex border-b-2 border-ink" aria-label="Status zgłoszeń">
+            <h1 className="display text-2xl leading-none">Zgłoszenia</h1>
+            <nav className="mt-4 flex gap-1 rounded-lg bg-surface p-1" aria-label="Status zgłoszeń">
               {TABS.map((tab) => (
                 <button
                   key={tab.status}
                   onClick={() => switchTab(tab.status)}
                   aria-pressed={status === tab.status}
-                  className={`-mb-0.5 flex-1 border-b-4 px-2 pb-2 pt-1 font-display text-[15px] font-semibold uppercase tracking-[0.04em] transition-colors ${
-                    status === tab.status ? "border-signal text-ink" : "border-transparent text-ink-muted hover:text-ink"
+                  className={`flex-1 rounded-md px-2 py-1.5 text-[15px] font-bold transition-colors ${
+                    status === tab.status ? "bg-paper text-primary shadow-sm ring-1 ring-rule" : "text-ink-muted hover:text-ink"
                   }`}
                 >
                   {tab.label}
@@ -173,19 +173,19 @@ function TicketRow(props: {
   const { ticket: t, selected } = props;
   const Icon = CATEGORY_ICONS[t.category];
   return (
-    <li className={`border-b border-rule ${selected ? "border-l-4 border-l-ink bg-white" : "border-l-4 border-l-transparent"}`}>
+    <li className={`border-b border-rule ${selected ? "bg-primary-tint/40 shadow-[inset_3px_0_0_var(--primary)]" : ""}`}>
       <button
         onClick={props.onSelect}
         aria-expanded={selected}
-        className="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-white sm:px-5"
+        className="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-surface sm:px-5"
       >
         <span
-          className="flex size-12 shrink-0 flex-col items-center justify-center rounded-[3px]"
+          className="flex size-12 shrink-0 flex-col items-center justify-center rounded-lg"
           style={{ backgroundColor: severityColor(t.severity_score), color: severityInk(t.severity_score) }}
           title={`Priorytet: ${severityLabel(t.severity_score)} · zgłoszeń: ${t.severity_score}`}
         >
           <span className="display text-2xl leading-none tabular-nums">{t.severity_score}</span>
-          <span className="font-display text-[9px] font-semibold uppercase leading-none tracking-[0.06em]">
+          <span className="text-[10px] font-bold leading-none">
             {severityLabel(t.severity_score)}
           </span>
         </span>
@@ -203,7 +203,7 @@ function TicketRow(props: {
           </span>
         </span>
         {/* eslint-disable-next-line @next/next/no-img-element -- served by /api/images */}
-        <img src={t.image_url} alt="" className="hidden size-12 shrink-0 rounded-[3px] bg-rule object-cover sm:block" />
+        <img src={t.image_url} alt="" className="hidden size-12 shrink-0 rounded-lg bg-rule object-cover sm:block" />
       </button>
       {selected && <TicketDetails ticket={t} onStatus={props.onStatus} />}
     </li>
@@ -235,12 +235,12 @@ function TicketDetails({ ticket: t, onStatus }: { ticket: Ticket; onStatus: (s: 
       <div className="flex gap-1.5 overflow-x-auto pb-1">
         {images.map((src, i) => (
           // eslint-disable-next-line @next/next/no-img-element -- served by /api/images
-          <img key={`${src}-${i}`} src={src} alt={`Zdjęcie ${i + 1}`} className="h-24 shrink-0 rounded-[3px] object-cover" />
+          <img key={`${src}-${i}`} src={src} alt={`Zdjęcie ${i + 1}`} className="h-24 shrink-0 rounded-lg object-cover" />
         ))}
       </div>
       <div>
         <p className="label">Treść pisma</p>
-        <p className="mt-1.5 whitespace-pre-line border-l-4 border-ink bg-paper px-3 py-2 text-[15px] leading-relaxed">
+        <p className="mt-1.5 whitespace-pre-line rounded-lg bg-surface px-3 py-2.5 text-[15px] leading-relaxed">
           {t.formal_report}
         </p>
       </div>

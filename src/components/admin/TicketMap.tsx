@@ -16,7 +16,7 @@ type Props = {
 
 export default function TicketMap({ tickets, selectedId, onSelect }: Props) {
   return (
-    <MapContainer center={KRAKOW} zoom={14} className="ticket-map size-full" scrollWheelZoom>
+    <MapContainer center={KRAKOW} zoom={14} className="size-full" scrollWheelZoom>
       <TileLayer
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
@@ -30,8 +30,8 @@ export default function TicketMap({ tickets, selectedId, onSelect }: Props) {
             center={[t.gps_lat, t.gps_lng]}
             radius={markerRadius(t.severity_score)}
             pathOptions={{
-              color: "#17181a",
-              weight: selected ? 4 : 1.5,
+              color: selected ? "#0064a7" : "#ffffff",
+              weight: selected ? 4 : 2,
               fillColor: severityColor(t.severity_score),
               fillOpacity: 0.95,
             }}

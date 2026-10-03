@@ -1,76 +1,90 @@
 @import "tailwindcss";
 
-/* Civic signage palette: colour is a signal, never decoration. See .ai/specs/2026-10-03-civic-signage-redesign.md */
+/* Palette and type follow the City of Kraków visual identity (SIW Miasta Krakowa):
+   blue Pantone 2945 C (#0064A7) as the primary colour, heraldic red/yellow/beige for severity,
+   Lato for text. See .ai/specs/2026-10-03-krakow-identity-redesign.md */
 :root {
-  --paper: #f4f1ea;
-  --ink: #17181a;
-  --ink-muted: #5c5a54;
-  --ink-faint: #7a776f;
-  --rule: #d8d3c7;
-  --signal: #ffcc00;
-  --sev-low: #ffcc00;
-  --sev-mid: #f07d00;
-  --sev-high: #c8261b;
+  --paper: #ffffff;
+  --surface: #f3f6f9;
+  --ink: #1b2733;
+  --ink-muted: #5a6673;
+  --ink-faint: #8a95a1;
+  --rule: #e2e7ec;
+  --rule-strong: #cfd6de;
+  --primary: #0064a7;
+  --primary-dark: #004f85;
+  --primary-tint: #e8f1f8;
+  --sev-low: #cdb794;
+  --sev-mid: #ffcc00;
+  --sev-high: #e40521;
   --ok: #1d7a3e;
-  --warn-bg: #fff7d6;
-  --warn-ink: #a15c00;
+  --ok-tint: #e6f3ea;
+  --warn-bg: #fff6d6;
+  --warn-ink: #8a5a00;
 }
 
 @theme inline {
   --color-paper: var(--paper);
+  --color-surface: var(--surface);
   --color-ink: var(--ink);
   --color-ink-muted: var(--ink-muted);
   --color-ink-faint: var(--ink-faint);
   --color-rule: var(--rule);
-  --color-signal: var(--signal);
+  --color-rule-strong: var(--rule-strong);
+  --color-primary: var(--primary);
+  --color-primary-dark: var(--primary-dark);
+  --color-primary-tint: var(--primary-tint);
   --color-sev-low: var(--sev-low);
   --color-sev-mid: var(--sev-mid);
   --color-sev-high: var(--sev-high);
   --color-ok: var(--ok);
+  --color-ok-tint: var(--ok-tint);
   --color-warn-bg: var(--warn-bg);
   --color-warn-ink: var(--warn-ink);
-  --font-sans: var(--font-barlow);
-  --font-display: var(--font-barlow-condensed);
+  --font-sans: var(--font-lato);
+  --font-brand: var(--font-ubuntu);
   --font-mono: var(--font-geist-mono);
 }
 
 body {
   background: var(--paper);
   color: var(--ink);
-  font-family: var(--font-barlow), system-ui, sans-serif;
+  font-family: var(--font-lato), system-ui, sans-serif;
   font-size: 16px;
 }
 
 :focus-visible {
-  outline: 3px solid var(--ink);
+  outline: 3px solid color-mix(in srgb, var(--primary) 45%, transparent);
   outline-offset: 2px;
 }
 
 @layer components {
-  /* Display type: condensed, uppercase, tracked – like street and road signs. */
   .display {
-    @apply font-display font-bold uppercase tracking-[0.02em];
+    @apply font-black tracking-[-0.015em] text-ink;
   }
   .label {
-    @apply font-display text-[13px] font-semibold uppercase tracking-[0.08em] text-ink-muted;
+    @apply text-sm font-bold text-ink-muted;
   }
   .btn-primary {
-    @apply flex w-full items-center justify-center gap-2 rounded-[4px] border-2 border-ink bg-signal px-4 py-3.5 font-display text-lg font-bold uppercase tracking-[0.04em] text-ink transition-colors hover:bg-[#ffd633] active:translate-y-px disabled:border-ink-faint disabled:bg-[#ebe6d9] disabled:text-ink-faint;
+    @apply flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 py-3.5 text-base font-bold text-white transition-colors hover:bg-primary-dark active:bg-primary-dark disabled:bg-rule-strong disabled:text-white;
   }
   .btn-secondary {
-    @apply flex w-full items-center justify-center gap-2 rounded-[4px] border-2 border-ink bg-transparent px-4 py-3 font-display text-base font-semibold uppercase tracking-[0.04em] text-ink transition-colors hover:bg-ink hover:text-paper disabled:border-ink-faint disabled:text-ink-faint disabled:hover:bg-transparent;
+    @apply flex w-full items-center justify-center gap-2 rounded-lg border border-rule-strong bg-paper px-4 py-3 text-base font-bold text-ink transition-colors hover:border-primary hover:text-primary disabled:border-rule disabled:text-ink-faint disabled:hover:text-ink-faint;
   }
   .btn-ink {
-    @apply flex w-full items-center justify-center gap-2 rounded-[4px] bg-ink px-4 py-3.5 font-display text-lg font-bold uppercase tracking-[0.04em] text-paper transition-opacity hover:opacity-90 disabled:opacity-50;
+    @apply flex w-full items-center justify-center gap-2 rounded-lg bg-ink px-4 py-3.5 text-base font-bold text-white transition-opacity hover:opacity-90 disabled:opacity-50;
+  }
+  .link {
+    @apply font-bold text-primary underline-offset-4 hover:underline;
   }
   .input {
-    @apply block w-full rounded-[4px] border border-ink/40 bg-white px-3 py-2.5 text-ink outline-none placeholder:text-ink-faint focus:border-ink focus:ring-2 focus:ring-signal focus-visible:outline-none;
+    @apply block w-full rounded-lg border border-rule-strong bg-paper px-3 py-2.5 text-ink outline-none transition-shadow placeholder:text-ink-faint focus:border-primary focus:ring-4 focus:ring-primary/15 focus-visible:outline-none;
   }
   .tag {
-    @apply inline-flex items-center gap-1 rounded-[2px] border px-1.5 py-0.5 font-display text-[12px] font-semibold uppercase tracking-[0.06em];
+    @apply inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-bold;
   }
   .ticket-no {
-    @apply font-mono text-[12px] tracking-wide text-ink-muted;
+    @apply font-mono text-xs text-ink-muted;
   }
 }
 
@@ -86,10 +100,6 @@ body {
   .progress-scan { animation: none; transform: none; width: 100%; opacity: 0.6; }
 }
 
-/* Quiet basemap so severity markers carry the colour. */
-.ticket-map .leaflet-tile-pane {
-  filter: grayscale(0.85) contrast(0.95) brightness(1.05);
-}
 .leaflet-container {
-  font-family: var(--font-barlow), system-ui, sans-serif;
+  font-family: var(--font-lato), system-ui, sans-serif;
 }

@@ -29,14 +29,14 @@ export default function LoginForm() {
   }
 
   return (
-    <main className="flex min-h-dvh flex-col bg-paper">
-      <header className="bg-ink px-5 py-3">
-        <Wordmark inverted />
+    <main className="flex min-h-dvh flex-col bg-surface">
+      <header className="border-b border-rule px-5 py-3">
+        <Wordmark />
       </header>
       <div className="flex flex-1 items-center justify-center px-4 py-10">
-        <form onSubmit={onSubmit} className="w-full max-w-sm">
+        <form onSubmit={onSubmit} className="w-full max-w-sm rounded-xl border border-rule bg-paper p-8">
           <p className="label">Panel urzędu</p>
-          <h1 className="display mt-1 text-4xl leading-none">Zaloguj się</h1>
+          <h1 className="display mt-1 text-3xl leading-tight">Zaloguj się</h1>
           <p className="mt-2 text-ink-muted">Dostęp tylko dla pracowników urzędu.</p>
 
           <label className="mt-8 block">
@@ -58,7 +58,7 @@ export default function LoginForm() {
             </p>
           )}
 
-          <button type="submit" disabled={busy || !password} className="btn-ink mt-6">
+          <button type="submit" disabled={busy || !password} className="btn-primary mt-6">
             {busy && <Loader2 className="size-4 animate-spin" aria-hidden />} Zaloguj
           </button>
         </form>
