@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { Lightbox, PhotoButton } from "@/components/Lightbox";
-import { ArrowLeft, Camera, ChevronDown, Loader2, MapPin, RefreshCw, Send, ShieldCheck } from "lucide-react";
+import { ArrowLeft, Ban, Camera, ChevronDown, Loader2, MapPin, RefreshCw, Send, ShieldCheck } from "lucide-react";
 import { CATEGORY_ICONS } from "@/components/categories";
 import { ticketNumber } from "@/components/ui";
 import type { MyReport } from "@/lib/types";
@@ -124,6 +124,7 @@ function ReportRow({ report: r }: { report: MyReport }) {
   const fmt = (iso?: string) => (iso ? new Date(iso).toLocaleDateString(locale, { day: "numeric", month: "short" }) : "");
   const fmtFull = (iso: string) => new Date(iso).toLocaleString(locale, { dateStyle: "medium", timeStyle: "short" });
   const detailsId = `report-${r.id}-details`;
+  const rejected = r.status === "REJECTED";
 
   return (
     <li className="border-b border-rule py-4">
@@ -138,7 +139,11 @@ function ReportRow({ report: r }: { report: MyReport }) {
         <div className="min-w-0 flex-1">
           <div className="flex items-center justify-between gap-2">
             <span className="ticket-no">{ticketNumber(r.ticket_id)}</span>
-            <span className={`tag ${STAGE_STYLE[stage - 1]}`}>{t.stages[stage - 1]}</span>
+            {rejected ? (
+              <span className="tag bg-sev-high/10 text-sev-high">{t.rejected}</span>
+            ) : (
+              <span className={`tag ${STAGE_STYLE[stage - 1]}`}>{t.stages[stage - 1]}</span>
+            )}
           </div>
           <h2 className="mt-1 truncate text-lg font-bold leading-tight">{r.title}</h2>
           <p className="mt-0.5 flex items-center gap-1.5 text-sm text-ink-muted">
@@ -149,7 +154,21 @@ function ReportRow({ report: r }: { report: MyReport }) {
         </div>
       </div>
 
-      {/* Four-segment progress, like a route indicator. */}
+      {rejected ? (
+        <div className="mt-3 rounded-lg bg-sev-high/10 px-3 py-2.5 text-sm" role="note">
+          <p className="flex items-center gap-1.5 font-bold text-sev-high">
+            <Ban className="size-4 shrink-0" aria-hidden /> {t.rejectedTitle}
+            {r.rejected_at && <span className="ml-auto font-mono text-[11px] font-normal text-ink-muted">{fmt(r.rejected_at)}</span>}
+          </p>
+          {r.rejection_reason && <p className="mt-0.5">{t.rejectionReasons[r.rejection_reason]}</p>}
+          {r.rejection_note && (
+            <p className="mt-1 text-ink-muted" lang="pl">
+              {r.rejection_note}
+            </p>
+          )}
+        </div>
+      ) : (
+      /* Four-segment progress, like a route indicator. */
       <ol className="mt-3 grid grid-cols-4 gap-1" aria-label={t.stageOf(stage, t.stages[stage - 1])}>
         {t.stages.map((label, i) => (
           <li key={label}>
@@ -161,6 +180,7 @@ function ReportRow({ report: r }: { report: MyReport }) {
           </li>
         ))}
       </ol>
+      )}
 
       <button
         type="button"

@@ -35,7 +35,7 @@ export default function StatsView({ onUnauthorized }: { onUnauthorized: () => vo
       <div className="mx-auto max-w-6xl space-y-8 px-4 py-6 sm:px-6">
         <section aria-label="Podsumowanie" className="grid grid-cols-2 gap-3 lg:grid-cols-5">
           <Tile label="Do załatwienia" value={open} hint={`w tym ${stats.by_status.IN_PROGRESS} w realizacji`} />
-          <Tile label="Rozwiązane" value={stats.by_status.RESOLVED} />
+          <Tile label="Rozwiązane" value={stats.by_status.RESOLVED} hint={`odrzucono ${stats.by_status.REJECTED}`} />
           <Tile label="Głosy mieszkańców" value={stats.total_reports} hint="wszystkie zgłoszenia" />
           <Tile
             label="Średni czas naprawy"

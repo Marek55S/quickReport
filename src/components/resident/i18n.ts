@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useSyncExternalStore } from "react";
-import type { Category, LocationSource } from "@/lib/types";
+import type { Category, LocationSource, RejectionReason } from "@/lib/types";
 
 // Resident UI languages. The letter to the city office stays in Polish (the office's language).
 export const LANGS = ["pl", "en", "uk"] as const;
@@ -159,6 +159,9 @@ type Dict = {
   dLetter: string;
   dLetterNotSent: string;
   dOfficeNote: string;
+  rejected: string;
+  rejectedTitle: string;
+  rejectionReasons: Record<RejectionReason, string>;
   dPhotos: string;
   language: string;
   enlarge: string;
@@ -280,6 +283,17 @@ const pl: Dict = {
   dLetter: "Pismo do urzędu",
   dLetterNotSent: "Jeszcze nie wysłane – urząd sprawdza zgłoszenie.",
   dOfficeNote: "Informacja od urzędu",
+  rejected: "Odrzucone",
+  rejectedTitle: "Urząd odrzucił zgłoszenie",
+  rejectionReasons: {
+    FALSE_REPORT: "Fałszywe zgłoszenie",
+    DUPLICATE: "Duplikat innego zgłoszenia",
+    NOT_CITY_MATTER: "Poza kompetencjami miasta",
+    ALREADY_FIXED: "Problem został już usunięty",
+    INSUFFICIENT_INFO: "Za mało informacji, by podjąć działanie",
+    INAPPROPRIATE: "Treść nieodpowiednia lub spam",
+    OTHER: "Inny powód",
+  },
   dPhotos: "Zdjęcia",
   language: "Język",
   enlarge: "Powiększ zdjęcie",
@@ -409,6 +423,17 @@ const en: Dict = {
   dLetter: "Letter to the city office",
   dLetterNotSent: "Not sent yet – the city office is reviewing the report.",
   dOfficeNote: "Note from the city office",
+  rejected: "Rejected",
+  rejectedTitle: "The city office rejected this report",
+  rejectionReasons: {
+    FALSE_REPORT: "False report",
+    DUPLICATE: "Duplicate of another report",
+    NOT_CITY_MATTER: "Outside the city's responsibility",
+    ALREADY_FIXED: "The problem has already been fixed",
+    INSUFFICIENT_INFO: "Not enough information to take action",
+    INAPPROPRIATE: "Inappropriate content or spam",
+    OTHER: "Other reason",
+  },
   dPhotos: "Photos",
   language: "Language",
   enlarge: "Enlarge photo",
@@ -541,6 +566,17 @@ const uk: Dict = {
   dLetter: "Лист до міської ради",
   dLetterNotSent: "Ще не надіслано – міська рада перевіряє звернення.",
   dOfficeNote: "Інформація від міської ради",
+  rejected: "Відхилено",
+  rejectedTitle: "Міська рада відхилила звернення",
+  rejectionReasons: {
+    FALSE_REPORT: "Неправдиве звернення",
+    DUPLICATE: "Дублікат іншого звернення",
+    NOT_CITY_MATTER: "Поза компетенцією міста",
+    ALREADY_FIXED: "Проблему вже усунуто",
+    INSUFFICIENT_INFO: "Недостатньо інформації для вжиття заходів",
+    INAPPROPRIATE: "Неприйнятний вміст або спам",
+    OTHER: "Інша причина",
+  },
   dPhotos: "Фото",
   language: "Мова",
   enlarge: "Збільшити фото",

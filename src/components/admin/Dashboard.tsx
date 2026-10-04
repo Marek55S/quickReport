@@ -3,7 +3,21 @@
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Check, FileText, Hammer, Loader2, LogOut, MapPin, Maximize2, Search, Send, ShieldAlert, X } from "lucide-react";
+import {
+  Ban,
+  Check,
+  FileText,
+  Hammer,
+  Loader2,
+  LogOut,
+  MapPin,
+  Maximize2,
+  RotateCcw,
+  Search,
+  Send,
+  ShieldAlert,
+  X,
+} from "lucide-react";
 import { routeCategory } from "@/lib/routing";
 import { Lightbox, PhotoButton, type LightboxImage } from "@/components/Lightbox";
 import { CATEGORY_ICONS } from "@/components/categories";
@@ -12,8 +26,12 @@ import {
   CATEGORY_LABELS,
   DANGER_LABELS,
   LOCATION_SOURCE_LABELS,
+  REJECTION_LABELS,
+  REJECTION_NOTE_MAX_LENGTH,
+  REJECTION_REASONS,
   REPORTABLE_CATEGORIES,
   type Category,
+  type RejectionReason,
   type Ticket,
   type TicketStatus,
 } from "@/lib/types";
@@ -31,7 +49,10 @@ const TABS: { status: TicketStatus; label: string; empty: string }[] = [
   { status: "OPEN", label: "Otwarte", empty: "Brak otwartych zgłoszeń. Nowe zgłoszenia mieszkańców pojawią się tu automatycznie." },
   { status: "IN_PROGRESS", label: "W realizacji", empty: "Żadne zgłoszenie nie jest teraz w realizacji." },
   { status: "RESOLVED", label: "Rozwiązane", empty: "Nie ma jeszcze rozwiązanych zgłoszeń." },
+  { status: "REJECTED", label: "Odrzucone", empty: "Nie ma odrzuconych zgłoszeń." },
 ];
+
+export type Rejection = { reason: RejectionReason; note: string };
 
 type Sort = "reports" | "danger" | "newest";
 type Filters = { query: string; category: Category | "ALL"; minDanger: number; sort: Sort };
@@ -108,6 +129,18 @@ export default function Dashboard() {
       setSelectedId(null);
       await load();
     }
+  }
+
+  async function reject(id: string, rejection: Rejection) {
+    const res = await fetch(`/api/tickets/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: "REJECTED", rejection_reason: rejection.reason, rejection_note: rejection.note }),
+    });
+    if (res.status === 401) return toLogin();
+    if (!res.ok) throw new Error((await res.json().catch(() => null))?.error ?? "Nie udało się odrzucić zgłoszenia");
+    setSelectedId(null);
+    await load();
   }
 
   async function resolve(id: string, form: FormData) {
@@ -222,6 +255,7 @@ export default function Dashboard() {
                       onSelect={() => setSelectedId(t.id === selectedId ? null : t.id)}
                       onStatus={(next) => changeStatus(t.id, next)}
                       onResolve={(form) => resolve(t.id, form)}
+                      onReject={(rejection) => reject(t.id, rejection)}
                       onChanged={load}
                     />
                   ))}
@@ -307,6 +341,7 @@ function DangerBadge({ level, compact = false }: { level: number; compact?: bool
 type TicketActionsProps = {
   onStatus: (s: TicketStatus) => void;
   onResolve: (form: FormData) => Promise<void>;
+  onReject: (rejection: Rejection) => Promise<void>;
   onChanged: () => Promise<void> | void;
 };
 
@@ -353,7 +388,7 @@ function TicketRow(props: TicketActionsProps & {
         {/* eslint-disable-next-line @next/next/no-img-element -- served by /api/images */}
         <img src={t.image_url} alt="" className="hidden size-12 shrink-0 rounded-lg bg-rule object-cover sm:block" />
       </button>
-      {selected && <TicketDetails ticket={t} onStatus={props.onStatus} onResolve={props.onResolve} onChanged={props.onChanged} />}
+      {selected && <TicketDetails ticket={t} {...actionProps(props)} />}
     </li>
   );
 }
@@ -396,7 +431,7 @@ function TicketDetails(props: TicketActionsProps & { ticket: Ticket }) {
 
 /** Large view of one ticket: big photos and map next to the letter, details, and actions. */
 function actionProps(p: TicketActionsProps): TicketActionsProps {
-  return { onStatus: p.onStatus, onResolve: p.onResolve, onChanged: p.onChanged };
+  return { onStatus: p.onStatus, onResolve: p.onResolve, onReject: p.onReject, onChanged: p.onChanged };
 }
 
 function TicketModal(props: TicketActionsProps & { ticket: Ticket; images: string[]; onClose: () => void }) {
@@ -535,7 +570,17 @@ function TicketContent(props: TicketActionsProps & { ticket: Ticket; images: str
     </dl>
   );
 
-  const actions = <TicketActions ticket={t} onStatus={props.onStatus} onResolve={props.onResolve} />;
+  const actions = <TicketActions ticket={t} onStatus={props.onStatus} onResolve={props.onResolve} onReject={props.onReject} />;
+
+  const rejection = t.status === "REJECTED" && t.rejection_reason && (
+    <div className="rounded-lg bg-sev-high/10 px-3 py-2.5 text-sm" role="note">
+      <p className="flex items-center gap-1.5 font-bold text-sev-high">
+        <Ban className="size-4" aria-hidden /> Odrzucone: {REJECTION_LABELS[t.rejection_reason]}
+      </p>
+      {t.rejection_note && <p className="mt-1">{t.rejection_note}</p>}
+      {t.rejected_at && <p className="mt-1 text-ink-muted">{new Date(t.rejected_at).toLocaleString("pl-PL")}</p>}
+    </div>
+  );
   const dispatch = <DispatchPanel ticket={t} onChanged={props.onChanged} />;
 
   return (
@@ -549,6 +594,7 @@ function TicketContent(props: TicketActionsProps & { ticket: Ticket; images: str
             </div>
           </div>
           <div className="space-y-4">
+            {rejection}
             {danger}
             {dispatch}
             {letter}
@@ -559,6 +605,7 @@ function TicketContent(props: TicketActionsProps & { ticket: Ticket; images: str
         </div>
       ) : (
         <div className="space-y-4">
+          {rejection}
           {danger}
           {dispatch}
           {photos}
@@ -625,7 +672,7 @@ function DispatchPanel({ ticket: t, onChanged }: { ticket: Ticket; onChanged: ()
           {error}
         </p>
       )}
-      {(!d || newReports > 0) && t.status !== "RESOLVED" && (
+      {(!d || newReports > 0) && (t.status === "OPEN" || t.status === "IN_PROGRESS") && (
         <button onClick={send} disabled={busy} className={`${d ? "btn-secondary" : "btn-primary"} mt-3 py-2.5`}>
           {busy ? <Loader2 className="size-4 animate-spin" aria-hidden /> : <Send className="size-4" aria-hidden />}
           {d ? "Wyślij uzupełnienie" : `Wyślij pismo do ${unit.short}`}
@@ -639,10 +686,11 @@ function TicketActions(props: {
   ticket: Ticket;
   onStatus: (s: TicketStatus) => void;
   onResolve: (form: FormData) => Promise<void>;
+  onReject: (rejection: Rejection) => Promise<void>;
 }) {
   const { ticket: t } = props;
   const [busy, setBusy] = useState(false);
-  const [resolving, setResolving] = useState(false);
+  const [form, setForm] = useState<"resolve" | "reject" | null>(null);
 
   async function update(next: TicketStatus) {
     setBusy(true);
@@ -651,7 +699,15 @@ function TicketActions(props: {
   }
 
   if (t.status === "RESOLVED") return null;
-  if (resolving) return <ResolveForm onCancel={() => setResolving(false)} onSubmit={props.onResolve} />;
+  if (t.status === "REJECTED") {
+    return (
+      <button disabled={busy} onClick={() => update("OPEN")} className="btn-secondary py-2.5">
+        <RotateCcw className="size-4" aria-hidden /> Przywróć do otwartych
+      </button>
+    );
+  }
+  if (form === "resolve") return <ResolveForm onCancel={() => setForm(null)} onSubmit={props.onResolve} />;
+  if (form === "reject") return <RejectForm onCancel={() => setForm(null)} onSubmit={props.onReject} />;
   return (
     <div className="flex flex-col gap-2">
       {t.status !== "IN_PROGRESS" && (
@@ -659,9 +715,85 @@ function TicketActions(props: {
           <Hammer className="size-4" aria-hidden /> Przyjmij do realizacji
         </button>
       )}
-      <button disabled={busy} onClick={() => setResolving(true)} className="btn-secondary py-2.5">
+      <button disabled={busy} onClick={() => setForm("resolve")} className="btn-secondary py-2.5">
         <Check className="size-4" aria-hidden /> Oznacz jako rozwiązane
       </button>
+      <button
+        disabled={busy}
+        onClick={() => setForm("reject")}
+        className="btn-secondary py-2.5 text-sev-high hover:border-sev-high hover:text-sev-high disabled:text-ink-faint"
+      >
+        <Ban className="size-4" aria-hidden /> Odrzuć zgłoszenie
+      </button>
+    </div>
+  );
+}
+
+/** Closing a ticket without action; the reason (and optional note) is shown to residents. */
+function RejectForm({ onCancel, onSubmit }: { onCancel: () => void; onSubmit: (rejection: Rejection) => Promise<void> }) {
+  const [reason, setReason] = useState<RejectionReason | null>(null);
+  const [note, setNote] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const noteRequired = reason === "OTHER";
+  const canSubmit = reason !== null && (!noteRequired || note.trim().length > 0);
+
+  async function submit() {
+    if (!reason) return;
+    setBusy(true);
+    setError("");
+    try {
+      await onSubmit({ reason, note: note.trim() });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Nie udało się odrzucić zgłoszenia");
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="space-y-3 rounded-lg border border-rule-strong p-3">
+      <p className="font-bold">Odrzuć zgłoszenie</p>
+      <fieldset>
+        <legend className="label">Powód odrzucenia</legend>
+        <div className="mt-1.5 space-y-1">
+          {REJECTION_REASONS.map((r) => (
+            <label key={r} className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-surface">
+              <input
+                type="radio"
+                name="rejection-reason"
+                value={r}
+                checked={reason === r}
+                onChange={() => setReason(r)}
+                className="accent-sev-high"
+              />
+              {REJECTION_LABELS[r]}
+            </label>
+          ))}
+        </div>
+      </fieldset>
+      <label className="block">
+        <span className="label">Wyjaśnienie dla mieszkańców {noteRequired ? "(wymagane)" : "(opcjonalnie)"}</span>
+        <input
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+          maxLength={REJECTION_NOTE_MAX_LENGTH}
+          className="input mt-1.5 text-sm"
+          placeholder="Np. zgłoszenie dotyczy terenu prywatnego"
+        />
+      </label>
+      {error && (
+        <p className="text-sm font-bold text-sev-high" role="alert">
+          {error}
+        </p>
+      )}
+      <div className="flex gap-2">
+        <button onClick={onCancel} disabled={busy} className="btn-secondary py-2.5">
+          Anuluj
+        </button>
+        <button onClick={submit} disabled={busy || !canSubmit} className="btn-primary bg-sev-high py-2.5 hover:bg-sev-high/90 disabled:bg-rule-strong">
+          {busy ? <Loader2 className="size-4 animate-spin" aria-hidden /> : <Ban className="size-4" aria-hidden />} Odrzuć
+        </button>
+      </div>
     </div>
   );
 }

@@ -2,7 +2,18 @@ import { FieldValue, Timestamp } from "@google-cloud/firestore";
 import ngeohash from "ngeohash";
 import { db } from "./firestore";
 import { imageUrl } from "./storage";
-import type { Analysis, Category, Dispatch, LocationSource, MyReport, Stats, SubmitResult, Ticket, TicketStatus } from "./types";
+import type {
+  Analysis,
+  Category,
+  Dispatch,
+  LocationSource,
+  MyReport,
+  RejectionReason,
+  Stats,
+  SubmitResult,
+  Ticket,
+  TicketStatus,
+} from "./types";
 import { CATEGORIES, STATUSES } from "./types";
 
 // 8 characters ≈ 38 m × 19 m cell.
@@ -127,6 +138,7 @@ export async function setTicketStatus(
   id: string,
   status: TicketStatus,
   resolution?: { imagePath?: string; note?: string },
+  rejection?: { reason: RejectionReason; note?: string },
 ): Promise<void> {
   const ticketRef = tickets.doc(id);
   await db.runTransaction(async (tx) => {
@@ -138,6 +150,7 @@ export async function setTicketStatus(
     // Timestamps per stage let residents see when their problem was taken up and fixed.
     const stamp = status === "IN_PROGRESS" ? { in_progress_at: FieldValue.serverTimestamp() }
       : status === "RESOLVED" ? { resolved_at: FieldValue.serverTimestamp() }
+      : status === "REJECTED" ? { rejected_at: FieldValue.serverTimestamp() }
       : {};
     const proof =
       status === "RESOLVED" && resolution
@@ -146,7 +159,14 @@ export async function setTicketStatus(
             ...(resolution.note ? { resolved_note: resolution.note } : {}),
           }
         : {};
-    tx.update(ticketRef, { status, ...stamp, ...proof, updated_at: FieldValue.serverTimestamp() });
+    // A rejection is cleared again when the ticket is restored to the workflow.
+    const rejected =
+      status !== "REJECTED"
+        ? { rejection_reason: FieldValue.delete(), rejection_note: FieldValue.delete(), rejected_at: FieldValue.delete() }
+        : rejection
+          ? { rejection_reason: rejection.reason, rejection_note: rejection.note ?? FieldValue.delete() }
+          : {};
+    tx.update(ticketRef, { status, ...stamp, ...proof, ...rejected, updated_at: FieldValue.serverTimestamp() });
     if (status !== "OPEN" && cluster.get("ticket_id") === id) {
       tx.delete(clusterRef);
     }
@@ -200,6 +220,9 @@ export async function listMyReports(reporterId: string | null, ownerId: string |
         dispatch_receipt: ticket.dispatch?.receipt,
         resolution_image_url: ticket.resolution_image_path ? imageUrl(ticket.resolution_image_path) : undefined,
         resolved_note: ticket.resolved_note,
+        rejection_reason: ticket.rejection_reason,
+        rejection_note: ticket.rejection_note,
+        rejected_at: optionalIso(ticket.rejected_at),
         dispatched_at: optionalIso(ticket.dispatch?.sent_at),
         dispatch_unit: ticket.dispatch?.unit_name,
         status: ticket.status,
@@ -253,7 +276,7 @@ export async function computeStats(days = 14): Promise<Stats> {
     resolved_count: resolvedCount,
     total_reports: all.reduce((sum, t) => sum + t.severity_score, 0),
     top_danger: all
-      .filter((t) => t.status !== "RESOLVED")
+      .filter((t) => t.status === "OPEN" || t.status === "IN_PROGRESS")
       .sort((a, b) => b.danger_level - a.danger_level || b.severity_score - a.severity_score)
       .slice(0, 5)
       .map(({ id, title, danger_level, severity_score, address }) => ({ id, title, danger_level, severity_score, address })),
@@ -323,6 +346,9 @@ function toTicket(id: string, data: FirebaseFirestore.DocumentData): Ticket {
     danger_reason: data.danger_reason,
     resolution_image_url: data.resolution_image_path ? imageUrl(data.resolution_image_path) : undefined,
     resolved_note: data.resolved_note,
+    rejection_reason: data.rejection_reason,
+    rejection_note: data.rejection_note,
+    rejected_at: optionalIso(data.rejected_at),
     dispatch: toDispatch(data.dispatch),
     in_progress_at: optionalIso(data.in_progress_at),
     resolved_at: optionalIso(data.resolved_at),

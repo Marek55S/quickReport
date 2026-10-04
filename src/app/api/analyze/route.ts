@@ -1,10 +1,10 @@
 import { analyzeImage } from "@/lib/ai";
-import { NOTES_MAX_LENGTH } from "@/lib/types";
+import { NOTES_MAX_LENGTH, REPORTABLE_CATEGORIES, type Category } from "@/lib/types";
 
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 const IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"];
 
-// POST multipart/form-data: image (file), notes (optional resident description)
+// POST multipart/form-data: image (file), notes (optional resident description), category (optional resident choice)
 export async function POST(request: Request) {
   const form = await request.formData().catch(() => null);
   const image = form?.get("image");
@@ -19,10 +19,12 @@ export async function POST(request: Request) {
   if (typeof notes === "string" && notes.length > NOTES_MAX_LENGTH) {
     return Response.json({ error: "Opis jest za długi" }, { status: 400 });
   }
+  const category = form?.get("category");
   const result = await analyzeImage({
     image: Buffer.from(await image.arrayBuffer()),
     mimeType: image.type,
     notes: typeof notes === "string" ? notes : undefined,
+    category: (REPORTABLE_CATEGORIES as string[]).includes(category as string) ? (category as Category) : undefined,
   });
   return Response.json(result);
 }

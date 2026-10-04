@@ -23,6 +23,7 @@ import {
 import { CATEGORY_ICONS } from "@/components/categories";
 import { ticketNumber, Wordmark } from "@/components/ui";
 import {
+  CATEGORY_LABELS,
   DEFAULT_CATEGORY,
   NOTES_MAX_LENGTH,
   REPORTABLE_CATEGORIES,
@@ -69,11 +70,13 @@ function useIsDesktop() {
 type Step = "home" | "analyzing" | "review" | "auth" | "submitting" | "done" | "error";
 type LocationChoice = "device" | "exif" | "map";
 type AnalyzeResponse = { analysis: Analysis; source: "ai" | "mock"; notes_used: boolean };
+type RegenerateOutcome = "updated" | "ignored" | "failed";
 
-async function requestAnalysis(blob: Blob, notes = ""): Promise<AnalyzeResponse> {
+async function requestAnalysis(blob: Blob, notes = "", category: Category | null = null): Promise<AnalyzeResponse> {
   const form = new FormData();
   form.append("image", blob, "photo.jpg");
   if (notes.trim()) form.append("notes", notes.trim());
+  if (category) form.append("category", category);
   // The server falls back to demo mode after 25 s; give up on the client after 60 s (slow mobile upload included).
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 60_000);
@@ -97,6 +100,14 @@ export default function ReportFlow() {
   const [analysis, setAnalysis] = useState<Analysis | null>(null);
   const [aiSource, setAiSource] = useState<"ai" | "mock">("ai");
   const [notes, setNotes] = useState("");
+  // Category the resident chose by hand; regenerating from notes keeps it instead of letting the AI reclassify.
+  const [pickedCategory, setPickedCategory] = useState<Category | null>(null);
+  // Regeneration from the notes: a newer run (e.g. after a category change) supersedes older ones, whose results are dropped.
+  const regeneration = useRef(0);
+  const [regenPending, setRegenPending] = useState(0);
+  const [regenOutcome, setRegenOutcome] = useState<RegenerateOutcome | null>(null);
+  // Notes the report was last generated from; leaving the field with different notes regenerates automatically.
+  const generatedFrom = useRef("");
   const [camera, setCamera] = useState<string | null>(null);
   const [result, setResult] = useState<SubmitResult | null>(null);
   const [error, setError] = useState("");
@@ -118,6 +129,9 @@ export default function ReportFlow() {
     setStep("analyzing");
     if (photo) URL.revokeObjectURL(photo.url);
     setPhoto(null);
+    setPickedCategory(null);
+    setRegenOutcome(null);
+    generatedFrom.current = "";
     try {
       // Location and EXIF run in parallel with the analysis; nothing waits for the slowest step to show the photo.
       const located = Promise.all([getPosition(), withTimeout(readPhotoPosition(file), 5000, null)]);
@@ -139,14 +153,48 @@ export default function ReportFlow() {
     }
   }
 
-  /** Returns false when the AI found the notes unrelated; the current report is then kept. */
-  async function regenerate(): Promise<boolean> {
-    if (!photo) return false;
-    const data = await requestAnalysis(photo.blob, notes);
-    if (!data.notes_used) return false;
-    setAnalysis(data.analysis);
-    setAiSource(data.source);
-    return true;
+  /** Rewrites the title and letter from the notes; "ignored" when the AI found them unrelated (the report is kept). */
+  async function regenerate(category = pickedCategory) {
+    if (!photo) return;
+    generatedFrom.current = notes.trim();
+    const request = ++regeneration.current;
+    setRegenPending((n) => n + 1);
+    setRegenOutcome(null);
+    try {
+      const data = await requestAnalysis(photo.blob, notes, category);
+      if (request !== regeneration.current) return;
+      if (data.notes_used) {
+        setAnalysis(data.analysis);
+        setAiSource(data.source);
+      }
+      setRegenOutcome(data.notes_used ? "updated" : "ignored");
+    } catch {
+      if (request === regeneration.current) setRegenOutcome("failed");
+    } finally {
+      setRegenPending((n) => n - 1);
+    }
+  }
+
+  /**
+   * A manual choice: with notes, the title and letter are rewritten for the new category;
+   * without them, a "nothing detected" title is at least replaced by the category name.
+   */
+  function pickCategory(category: Category) {
+    setPickedCategory(category);
+    setAnalysis((a) =>
+      a && { ...a, category, title: a.category === DEFAULT_CATEGORY ? CATEGORY_LABELS[category] : a.title },
+    );
+    if (notes.trim()) regenerate(category);
+  }
+
+  function changeNotes(value: string) {
+    setNotes(value);
+    setRegenOutcome(null);
+  }
+
+  function notesBlurred() {
+    const trimmed = notes.trim();
+    if (trimmed && trimmed !== generatedFrom.current && regenPending === 0) regenerate();
   }
 
   async function submit() {
@@ -185,6 +233,9 @@ export default function ReportFlow() {
     setLocations(null);
     setAnalysis(null);
     setNotes("");
+    setPickedCategory(null);
+    setRegenOutcome(null);
+    generatedFrom.current = "";
     setResult(null);
     setError("");
     setStep("home");
@@ -240,8 +291,12 @@ export default function ReportFlow() {
           analysis={analysis}
           aiSource={aiSource}
           notes={notes}
-          onNotes={setNotes}
-          onRegenerate={regenerate}
+          onNotes={changeNotes}
+          onNotesBlur={notesBlurred}
+          onRegenerate={() => regenerate()}
+          regenerating={regenPending > 0}
+          regenOutcome={regenOutcome}
+          onPickCategory={pickCategory}
           onChange={setAnalysis}
           onBack={reset}
           onNext={() => setStep("auth")}
@@ -397,7 +452,11 @@ function Review(props: {
   aiSource: "ai" | "mock";
   notes: string;
   onNotes: (n: string) => void;
-  onRegenerate: () => Promise<boolean>;
+  onNotesBlur: () => void;
+  onRegenerate: () => void;
+  regenerating: boolean;
+  regenOutcome: RegenerateOutcome | null;
+  onPickCategory: (c: Category) => void;
   onChange: (a: Analysis) => void;
   onBack: () => void;
   onNext: () => void;
@@ -408,7 +467,15 @@ function Review(props: {
   const canSend = !notDetected && analysis.title.trim().length >= 3 && analysis.formal_report.trim().length >= 20;
 
   const notesSection = (
-    <NotesSection notes={props.notes} onNotes={props.onNotes} onRegenerate={props.onRegenerate} highlight={notDetected} />
+    <NotesSection
+      notes={props.notes}
+      onNotes={props.onNotes}
+      onBlur={props.onNotesBlur}
+      onRegenerate={props.onRegenerate}
+      busy={props.regenerating}
+      outcome={props.regenOutcome}
+      highlight={notDetected}
+    />
   );
 
   const isDesktop = useIsDesktop();
@@ -458,7 +525,7 @@ function Review(props: {
           <Section first={!notDetected}>
             <CategoryPicker
               value={analysis.category}
-              onChange={(category) => onChange({ ...analysis, category })}
+              onChange={props.onPickCategory}
               forceOpen={notDetected}
             />
           </Section>
@@ -673,15 +740,15 @@ function useApproxAddress(position: Position, enabled: boolean) {
 function NotesSection(props: {
   notes: string;
   onNotes: (n: string) => void;
-  onRegenerate: () => Promise<boolean>;
+  onBlur: () => void;
+  onRegenerate: () => void;
+  busy: boolean;
+  outcome: RegenerateOutcome | null;
   highlight: boolean;
 }) {
   const t = useT();
-  const [busy, setBusy] = useState(false);
-  const [outcome, setOutcome] = useState<"updated" | "ignored" | "failed" | null>(null);
+  const { busy, outcome } = props;
   const feedback = useRef<HTMLDivElement>(null);
-  // Notes the report was last generated from; leaving the field with different notes regenerates automatically.
-  const generatedFrom = useRef("");
 
   // The result appears at the bottom of the screen, under the sticky send bar; bring it into view.
   useEffect(() => {
@@ -690,40 +757,21 @@ function NotesSection(props: {
     feedback.current?.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "center" });
   }, [outcome]);
 
-  async function run() {
-    generatedFrom.current = props.notes.trim();
-    setBusy(true);
-    setOutcome(null);
-    try {
-      setOutcome((await props.onRegenerate()) ? "updated" : "ignored");
-    } catch {
-      setOutcome("failed");
-    } finally {
-      setBusy(false);
-    }
-  }
-
   return (
     <section>
       <label className="block">
         <span className="label">{props.highlight ? t.notesRequired : t.notesOptional}</span>
         <textarea
           value={props.notes}
-          onChange={(e) => {
-            props.onNotes(e.target.value);
-            setOutcome(null);
-          }}
-          onBlur={() => {
-            const notes = props.notes.trim();
-            if (notes && notes !== generatedFrom.current && !busy) run();
-          }}
+          onChange={(e) => props.onNotes(e.target.value)}
+          onBlur={props.onBlur}
           maxLength={NOTES_MAX_LENGTH}
           rows={3}
           placeholder={t.notesPlaceholder}
           className={`input mt-2 text-[15px] ${props.highlight ? "border-primary ring-4 ring-primary/15" : ""}`}
         />
       </label>
-      <button type="button" onClick={run} disabled={busy || !props.notes.trim()} className="btn-secondary mt-2 py-2.5">
+      <button type="button" onClick={props.onRegenerate} disabled={busy || !props.notes.trim()} className="btn-secondary mt-2 py-2.5">
         {busy ? <Loader2 className="size-4 animate-spin" aria-hidden /> : <Sparkles className="size-4" aria-hidden />}
         {busy ? t.generating : t.useNotes}
       </button>

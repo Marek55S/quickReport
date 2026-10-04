@@ -33,6 +33,7 @@ const STATUS_STYLE: Record<TicketStatus, { label: string; className: string }> =
   OPEN: { label: "Przyjęte", className: "bg-surface text-ink-muted ring-1 ring-inset ring-rule-strong" },
   IN_PROGRESS: { label: "W realizacji", className: "bg-primary-tint text-primary-dark" },
   RESOLVED: { label: "Rozwiązane", className: "bg-ok-tint text-ok" },
+  REJECTED: { label: "Odrzucone", className: "bg-sev-high/10 text-sev-high" },
 };
 
 export function StatusTag({ status }: { status: TicketStatus }) {

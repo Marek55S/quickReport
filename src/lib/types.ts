@@ -45,8 +45,32 @@ export const LOCATION_SOURCE_LABELS: Record<LocationSource, string> = {
 
 export const NOTES_MAX_LENGTH = 1000;
 
-export const STATUSES = ["OPEN", "IN_PROGRESS", "RESOLVED"] as const;
+export const STATUSES = ["OPEN", "IN_PROGRESS", "RESOLVED", "REJECTED"] as const;
 export type TicketStatus = (typeof STATUSES)[number];
+
+/** Why an official closed a ticket without action; shown to residents in "Moje zgłoszenia". */
+export const REJECTION_REASONS = [
+  "FALSE_REPORT",
+  "DUPLICATE",
+  "NOT_CITY_MATTER",
+  "ALREADY_FIXED",
+  "INSUFFICIENT_INFO",
+  "INAPPROPRIATE",
+  "OTHER",
+] as const;
+export type RejectionReason = (typeof REJECTION_REASONS)[number];
+
+export const REJECTION_LABELS: Record<RejectionReason, string> = {
+  FALSE_REPORT: "Fałszywe zgłoszenie",
+  DUPLICATE: "Duplikat innego zgłoszenia",
+  NOT_CITY_MATTER: "Poza kompetencjami miasta",
+  ALREADY_FIXED: "Problem został już usunięty",
+  INSUFFICIENT_INFO: "Za mało informacji, by podjąć działanie",
+  INAPPROPRIATE: "Treść nieodpowiednia lub spam",
+  OTHER: "Inny powód",
+};
+
+export const REJECTION_NOTE_MAX_LENGTH = 500;
 
 export const DANGER_LEVELS = [1, 2, 3, 4, 5] as const;
 export const DANGER_LABELS: Record<number, string> = {
@@ -97,6 +121,9 @@ export type Ticket = {
   danger_reason?: string;
   resolution_image_url?: string;
   resolved_note?: string;
+  rejection_reason?: RejectionReason;
+  rejection_note?: string;
+  rejected_at?: string;
   category: Category;
   title: string;
   formal_report: string;
@@ -125,6 +152,9 @@ export type MyReport = {
   address?: string;
   resolution_image_url?: string;
   resolved_note?: string;
+  rejection_reason?: RejectionReason;
+  rejection_note?: string;
+  rejected_at?: string;
   title: string;
   category: Category;
   image_url: string;

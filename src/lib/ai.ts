@@ -1,6 +1,6 @@
 import { GoogleGenAI } from "@google/genai";
 import { z } from "zod";
-import { CATEGORIES, DEFAULT_CATEGORY, type Analysis, type Category } from "./types";
+import { CATEGORIES, CATEGORY_LABELS, DEFAULT_CATEGORY, type Analysis, type Category } from "./types";
 
 const TIMEOUT_MS = 25_000;
 
@@ -26,7 +26,10 @@ ${CATEGORIES.map((c) => `   - ${c}: ${CATEGORY_HINTS[c]}`).join("\n")}
    Opis mieszkańca ma pierwszeństwo przed zdjęciem: jeśli opis doprecyzowuje lub zmienia, czego dotyczy zgłoszenie
    (np. "chodzi o latarnię obok, nie o dziurę"), wybierz kategorię na podstawie opisu.
    ${DEFAULT_CATEGORY} wybierz tylko wtedy, gdy ani zdjęcie, ani opis nie wskazują problemu.
+   Jeśli mieszkaniec sam wybrał kategorię (w znacznikach <kategoria_mieszkanca>), zwróć dokładnie tę kategorię.
 2. Napisz krótki tytuł (maksymalnie 8 słów, po polsku), np. "Uszkodzona nawierzchnia chodnika".
+   Tytuł nazywa konkretny problem z opisu mieszkańca (a bez opisu – ze zdjęcia) i pasuje do wybranej kategorii.
+   Poza ${DEFAULT_CATEGORY} tytuł nigdy nie może mówić, że problemu nie rozpoznano lub nie widać.
 3. Napisz treść oficjalnego zgłoszenia do urzędu miasta po polsku, profesjonalnym językiem urzędowym (3–6 zdań):
    zacznij od "Szanowni Państwo,", opisz rzeczowo problem, wskaż potencjalne zagrożenie i wnieś o konkretne działanie.
    Gdy jest opis mieszkańca, tytuł i treść muszą opisywać problem z opisu, nawet jeśli różni się od tego, co widać na zdjęciu;
@@ -71,6 +74,8 @@ export type AnalyzeInput = {
   image: Buffer;
   mimeType: string;
   notes?: string;
+  /** Category chosen by the resident; the analysis keeps it and writes the title and letter for it. */
+  category?: Category;
 };
 
 export type AnalyzeResult = {
@@ -91,10 +96,13 @@ function getClient() {
   return client;
 }
 
-function userText({ notes }: AnalyzeInput) {
-  return notes?.trim()
+function userText({ notes, category }: AnalyzeInput) {
+  const description = notes?.trim()
     ? `<opis_mieszkanca>\n${notes.trim()}\n</opis_mieszkanca>`
     : "Mieszkaniec nie dodał opisu.";
+  return category
+    ? `${description}\n<kategoria_mieszkanca>${category} (${CATEGORY_LABELS[category]})</kategoria_mieszkanca>`
+    : description;
 }
 
 export async function analyzeImage(input: AnalyzeInput): Promise<AnalyzeResult> {
@@ -123,6 +131,8 @@ export async function analyzeImage(input: AnalyzeInput): Promise<AnalyzeResult> 
       },
     });
     const { notes_relevant, ...analysis } = ModelOutputSchema.parse(JSON.parse(response.text ?? ""));
+    // The resident's choice wins over the model's classification.
+    if (input.category) analysis.category = input.category;
     return { analysis, source: "ai", notes_used: Boolean(input.notes?.trim()) && notes_relevant };
   } catch (error) {
     // Keep the resident flow working (and the demo alive) if Vertex AI is unavailable.
@@ -134,8 +144,8 @@ export async function analyzeImage(input: AnalyzeInput): Promise<AnalyzeResult> 
 function mockAnalysis(input: AnalyzeInput): Analysis {
   const notes = input.notes?.trim();
   return {
-    category: "ROAD_DAMAGE",
-    title: "Uszkodzona nawierzchnia chodnika",
+    category: input.category ?? "ROAD_DAMAGE",
+    title: input.category ? CATEGORY_LABELS[input.category] : "Uszkodzona nawierzchnia chodnika",
     formal_report: `Szanowni Państwo,
 uprzejmie informuję o uszkodzeniu nawierzchni chodnika widocznym na załączonym zdjęciu.${notes ? ` Według zgłaszającego: ${notes}` : ""} Ubytki w nawierzchni stwarzają ryzyko potknięcia się pieszych oraz utrudniają poruszanie się osobom na wózkach. Wnoszę o zabezpieczenie miejsca oraz naprawę nawierzchni w możliwie najkrótszym terminie.`,
     danger_level: 3,

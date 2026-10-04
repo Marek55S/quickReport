@@ -29,13 +29,13 @@ Plan and task status: [`.ai/specs/2026-10-03-one-snap-reporting-mvp.md`](specs/2
 | `.ai/research/` | Investigation template and future evidence notes |
 | `.ai/templates/` | Reusable PR description template |
 | `src/components/resident/` | Resident flow: camera or gallery photo, location source (device / EXIF / map pin), AI review with optional notes, mObywatel mock, confirmation |
-| `src/components/admin/` | Dashboard: severity map, prioritized list, status changes, 10 s polling; login form |
+| `src/components/admin/` | Dashboard: severity map, prioritized list, status changes (incl. rejection with a reason shown to residents), 10 s polling; login form |
 | `src/app/moje-zgloszenia/`, `src/app/api/my-reports/` | Resident's own reports with status timeline |
 | `src/lib/auth.ts`, `src/proxy.ts`, `src/app/api/admin/` | Dashboard login, session check (proxy + route handlers), logout |
 | `src/app/api/reports/`, `src/app/api/tickets/` | Report submission (upload + clustering), ticket listing, photos, status updates |
 | `src/app/manifest.ts`, `src/app/icon.svg` | PWA manifest and app icon |
 | `src/lib/tickets.ts` | Clustering upsert (`submitReport`: geohash-8 cell + 8 neighbours, same category, Firestore transaction), status changes, listing |
-| `src/lib/ai.ts`, `src/app/api/analyze/route.ts` | Gemini analysis of photo + optional notes: category (11 incl. default `NOT_DETECTED`), title, formal letter, AI danger level 1–5 with reason; structured JSON output and mock fallback |
+| `src/lib/ai.ts`, `src/app/api/analyze/route.ts` | Gemini analysis of photo + optional notes and resident-chosen category (kept as is): category (11 incl. default `NOT_DETECTED`), title, formal letter, AI danger level 1–5 with reason; structured JSON output and mock fallback |
 | `src/lib/geocode.ts`, `src/app/api/geocode/` | Approximate address via OpenStreetMap Nominatim (cached, ≤ 1 request/s) |
 | `src/app/api/stats/`, `src/app/api/tickets/[id]/resolution/` | Dashboard statistics; resolving a ticket with an after-repair photo and note |
 | `src/lib/routing.ts`, `src/lib/letter.ts`, `src/lib/dispatch.ts`, `src/app/api/tickets/[id]/{dispatch,letter}/` | Category → Kraków unit routing, PDF letter (pdf-lib + embedded Lato from `public/fonts`), delivery by SMTP e-mail or simulated, receipt stored on the ticket |
