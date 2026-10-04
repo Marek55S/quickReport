@@ -5,12 +5,18 @@ import { Loader2 } from "lucide-react";
 import { Wordmark } from "@/components/ui";
 
 export default function LoginForm() {
-  const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
-  async function onSubmit(e: React.FormEvent) {
+  async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    // Read the field at submit time: browsers do not report an autofilled password to the page until the user
+    // interacts, so a value kept in state stayed empty and the button looked disabled.
+    const password = String(new FormData(e.currentTarget).get("password") ?? "");
+    if (!password) {
+      setError("Wpisz hasło");
+      return;
+    }
     setBusy(true);
     setError("");
     const res = await fetch("/api/admin/login", {
@@ -43,11 +49,10 @@ export default function LoginForm() {
             <span className="label">Hasło</span>
             <input
               type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              name="password"
+              onChange={() => error && setError("")}
               autoComplete="current-password"
               autoFocus
-              required
               aria-invalid={Boolean(error)}
               className="input mt-2"
             />
@@ -58,7 +63,7 @@ export default function LoginForm() {
             </p>
           )}
 
-          <button type="submit" disabled={busy || !password} className="btn-primary mt-6">
+          <button type="submit" disabled={busy} className="btn-primary mt-6">
             {busy && <Loader2 className="size-4 animate-spin" aria-hidden />} Zaloguj
           </button>
         </form>

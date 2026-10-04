@@ -82,3 +82,11 @@ Close the communication loop for residents by showing the status of their report
 - Execution result:
   - Actual files: `.ai/ARCHITECTURE.md`, `README.md` (deploy command with `ADMIN_PASSWORD`/`ADMIN_SESSION_SECRET`), `docs/ROADMAP.md`, this specification
   - Remaining work: User deploys with the new environment variables; physical phone test.
+
+## Fix: login button disabled after password autofill (2026-10-04)
+
+- Report: with a saved password the browser filled the field, but "Zaloguj" stayed disabled until the password was typed again.
+- Cause: the button was disabled while React state held an empty password; browsers do not report an autofilled password to the page (no input event) until the user interacts.
+- Fix (`src/components/admin/LoginForm.tsx`): the field is uncontrolled and read with `FormData` on submit; the button is only disabled while a request is running; an empty field shows "Wpisz hasło" (native `required` removed so the message is consistent).
+- Validation (Playwright, value set without an input event as autofill does): button enabled; correct password → dashboard; wrong → "Nieprawidłowe hasło"; empty → "Wpisz hasło". `pnpm build` and `pnpm lint` passed.
+
